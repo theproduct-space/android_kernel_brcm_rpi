@@ -176,6 +176,32 @@
 
 	/*
 	 * ------------------------------------------------------------------
+	 *  fragment@7: Configure i2c2 on GPIO12 (SDA) and GPIO13 (SCL) for NFC
+	 * ------------------------------------------------------------------
+	 */
+	fragment@7 {
+		target = <&i2c2>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-0 = <&rp1_i2c2_12_13>; // For GPIO12 (SDA) and GPIO13 (SCL)
+			status = "okay";
+
+			/*
+			 * Placeholder for the NFC chip.
+			 * You may need to change compatible and reg (I2C address).
+			 */
+			nfc_chip_placeholder: nfc_chip@50 { // 0x50 is the address selected for the PN7160
+				compatible = "nxp,pn7160"; // Example compatible string
+				reg = <0x50>;
+				status = "okay";
+				// Add other properties like interrupt GPIOs if needed
+			};
+		};
+	};
+
+	/*
+	 * ------------------------------------------------------------------
 	 *  __overrides__ Section
 	 * ------------------------------------------------------------------
 	 */
