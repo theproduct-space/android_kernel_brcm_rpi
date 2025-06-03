@@ -125,7 +125,9 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			pinctrl-0 = <&rp1_i2c3_22_23>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c3_pins>;
+			clock-frequency = <100000>;  /* 100kHz for stability */
 			status = "okay";
 
 			charger: charger@6a {
@@ -151,7 +153,7 @@
 			};
 
 			bq27441_fg: bq27441-battery@55 {
-				compatible = "ti,bq27411";
+				compatible = "ti,bq27441", "ti,bq27411";
 				reg = <0x55>;
 				status = "okay";
 			};
@@ -170,6 +172,13 @@
 				brcm,pins = <24>;
 				brcm,function = <0>;  // 0 = GPIO input
 				brcm,pull = <2>;      // 2 = pull-up
+			};
+
+			/* I2C3 pin configuration for GPIO22/23 with pull-ups */
+			i2c3_pins: i2c3_pins {
+				brcm,pins = <22 23>;      // GPIO22=SDA, GPIO23=SCL
+				brcm,function = <4 4>;    // Alt0 = I2C function
+				brcm,pull = <2 2>;        // Pull-up on both pins
 			};
 		};
 	};
@@ -197,6 +206,55 @@
 				reg = <0x50>;
 				status = "okay";
 				// Add other properties like interrupt GPIOs if needed
+			};
+		};
+	};
+
+	/*
+	 * ------------------------------------------------------------------
+	 * fragment@2a: Configure hardware PWM on GPIO18 for Pi5
+	 * ------------------------------------------------------------------
+	 */
+	fragment@2a {
+		target = <&rp1_pwm>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm0_gpio18_pi5>;
+			status = "okay";
+		};
+	};
+
+	/*
+	 * ------------------------------------------------------------------
+	 * fragment@2b: GPIO18 pin configuration for PWM (Pi5)
+	 * ------------------------------------------------------------------
+	 */
+	fragment@2b {
+		target = <&gpio>;
+		__overlay__ {
+			pwm0_gpio18_pi5: pwm0_gpio18_pi5 {
+				brcm,pins = <18>;
+				brcm,function = <3>;    // Alt3 = PWM for Pi5
+				brcm,pull = <0>;        // No pull
+			};
+		};
+	};
+
+	/*
+	 * ------------------------------------------------------------------
+	 * fragment@2c: PWM backlight device
+	 * ------------------------------------------------------------------
+	 */
+	fragment@2c {
+		target-path = "/";
+		__overlay__ {
+			backlight: backlight {
+				compatible = "pwm-backlight";
+				pwms = <&rp1_pwm 2 50000 0>; // Channel 2 for GPIO18 on Pi5
+				brightness-levels = <0 4 8 16 32 64 128 255>;
+				default-brightness-level = <6>;
+				enable-gpios = <&gpio 18 0>;
+				status = "okay";
 			};
 		};
 	};
