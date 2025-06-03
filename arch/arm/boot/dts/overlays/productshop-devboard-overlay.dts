@@ -5,6 +5,17 @@
 	compatible = "brcm,bcm2712";
 
 	/*
+	 * Battery definition for 10,000 mAh LiPo
+	 */
+	lipo_battery: battery {
+		compatible = "simple-battery";
+		voltage-min-design-microvolt = <3000000>;  /* 3.0V cutoff */
+		voltage-max-design-microvolt = <4200000>;  /* 4.2V max */
+		energy-full-design-microwatt-hours = <37000000>;  /* 37Wh (10Ah * 3.7V) */
+		charge-full-design-microamp-hours = <10000000>;   /* 10,000 mAh */
+	};
+
+	/*
 	 * ------------------------------------------------------------------
 	 *  fragment@0: Configure i2c1 on pins 10/11
 	 * ------------------------------------------------------------------
@@ -64,12 +75,58 @@
 		};
 	};
 
+	    /*
+     * ------------------------------------------------------------------
+     * fragment@3: Configure GPIO18 for PWM output
+     * ------------------------------------------------------------------
+     */
+    fragment@3 {
+        target = <&gpio>;
+        __overlay__ {
+            pwm_gpio_pins: pwm_gpio_pins {
+                brcm,pins     = <18>;  /* BCM18 */
+                brcm,function = <1>;   /* output */
+                brcm,pull     = <0>;   /* no pull */
+            };
+        };
+    };
+
+	 /*
+     * ------------------------------------------------------------------
+     * fragment@4: PWM-driven backlight on BCM18 (PWM0)
+     * ------------------------------------------------------------------
+     */
+    fragment@4 {
+        target-path = "/";
+        __overlay__ {
+            /* PWM-GPIO provider on GPIO18 */
+            pwm_gpio: pwm_gpio {
+                compatible     = "pwm-gpio";
+                #pwm-cells     = <2>;
+                pinctrl-names  = "default";
+                pinctrl-0      = <&pwm_gpio_pins>;
+                gpios          = <&gpio 18 0>;  /* active-high */
+            };
+
+            /* bind this provider into the backlight class */
+            backlight: backlight {
+                compatible               = "pwm-backlight";
+                pinctrl-names            = "default";
+                pinctrl-0                = <&pwm_gpio_pins>;
+                enable-gpios             = <&gpio 18 0>;
+                pwms                     = <&pwm_gpio 0 500000 0>;  /* 500 µs period (~2 kHz) */
+                brightness-levels        = <0 4 8 16 32 64 128 255>;
+                default-brightness-level = <2>;
+            };
+        };
+    };
+
 	/*
 	 * ------------------------------------------------------------------
-	 *  fragment@3: DSI panel at dsi1
+	 *  fragment@5: DSI panel at dsi1
 	 * ------------------------------------------------------------------
 	 */
-	dsi_frag: fragment@3 {
+	dsi_frag: fragment@5 {
 		target = <&dsi1>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -85,6 +142,8 @@
 			dsi_panel: dsi_panel@0 {
 				reg = <0>;
 				compatible = "waveshare,10.1-dsi-touch-a,4lane";
+				/* bind the PWM backlight controller defined below */
+                backlight = <&backlight>;
 
 				port {
 					panel_in: endpoint {
@@ -97,10 +156,10 @@
 
 	/*
 	 * ------------------------------------------------------------------
-	 *  fragment@4: LSM6DSL IMU on i2c1 at 0x6A
+	 *  fragment@6: LSM6DSL IMU on i2c1 at 0x6A
 	 * ------------------------------------------------------------------
 	 */
-	fragment@4 {
+	fragment@6 {
 		target = <&i2c1>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -117,17 +176,15 @@
 
 	/*
 	 * ------------------------------------------------------------------
-	 *  fragment@5: Enable i2c3 on pins 22/23 and add BQ2589x + BQ274xx
+	 *  fragment@7: Enable i2c3 on pins 22/23 and add BQ2589x + BQ274xx
 	 * ------------------------------------------------------------------
 	 */
-	fragment@5 {
+	fragment@7 {
 		target = <&i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&i2c3_pins>;
-			clock-frequency = <100000>;  /* 100kHz for stability */
+			pinctrl-0 = <&rp1_i2c3_22_23>;
 			status = "okay";
 
 			charger: charger@6a {
@@ -143,29 +200,44 @@
 				interrupt-parent = <&gpio>;
 				interrupts = <24 2>;
 
-				ti,battery-regulation-voltage = <4192000>;
-				ti,charge-current = <1600000>;
-				ti,termination-current = <66000>;
-				ti,precharge-current = <130000>;
-				ti,minimum-sys-voltage = <2700000>;
-				ti,boost-voltage = <5000000>;
-				ti,boost-max-current = <50000>;
+				/* Battery configuration for 10,000 mAh 1C LiPo */
+				ti,battery-regulation-voltage = <4200000>;  /* 4.2V for LiPo */
+				ti,charge-current = <3000000>;              /* 3A (0.3C) - safe charging */
+				ti,termination-current = <200000>;          /* 200mA (C/50) */
+				ti,precharge-current = <300000>;            /* 300mA (3% of capacity) */
+				ti,minimum-sys-voltage = <3500000>;         /* 3.5V minimum system voltage */
+				ti,boost-voltage = <5000000>;               /* 5V boost output */
+				ti,boost-max-current = <1000000>;           /* 1A boost current */
+				
+				/* Additional safety parameters */
+				ti,input-current-limit = <3000000>;        /* 3A input current limit */
+				ti,iinlim-pin-enable;                      /* Enable ILIM pin */
+				ti,use-ilim-pin;                           /* Use ILIM pin for detection */
 			};
 
-			bq27441_fg: bq27441-battery@55 {
-				compatible = "ti,bq27441", "ti,bq27411";
+			fuel_gauge: fuel_gauge@55 {
+				compatible = "ti,bq27411";
 				reg = <0x55>;
-				status = "okay";
+
+				/* Reference the battery properties */
+				monitored-battery = <&lipo_battery>;
+
+				/*
+				 * You can add an interrupt later if connected.
+				 * For now, the driver will poll the device.
+				 */
+				/* interrupt-parent = <&gpio>; */
+				/* interrupts = <XX 2>; */
 			};
 		};
 	};
 
 	/*
 	 * ------------------------------------------------------------------
-	 * fragment@6: Define pinctrl_charger to set GPIO24 as input + pull-up
+	 * fragment@8: Define pinctrl_charger to set GPIO24 as input + pull-up
 	 * ------------------------------------------------------------------
 	 */
-	fragment@6 {
+	fragment@8 {
 		target = <&gpio>; /* or the correct pinctrl node label in Pi 5 base DT */
 		__overlay__ {
 			pinctrl_charger: pinctrl_charger {
@@ -173,22 +245,15 @@
 				brcm,function = <0>;  // 0 = GPIO input
 				brcm,pull = <2>;      // 2 = pull-up
 			};
-
-			/* I2C3 pin configuration for GPIO22/23 with pull-ups */
-			i2c3_pins: i2c3_pins {
-				brcm,pins = <22 23>;      // GPIO22=SDA, GPIO23=SCL
-				brcm,function = <4 4>;    // Alt0 = I2C function
-				brcm,pull = <2 2>;        // Pull-up on both pins
-			};
 		};
 	};
 
 	/*
 	 * ------------------------------------------------------------------
-	 *  fragment@7: Configure i2c2 on GPIO12 (SDA) and GPIO13 (SCL) for NFC
+	 *  fragment@9: Configure i2c2 on GPIO12 (SDA) and GPIO13 (SCL) for NFC
 	 * ------------------------------------------------------------------
 	 */
-	fragment@7 {
+	fragment@9 {
 		target = <&i2c2>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -197,64 +262,23 @@
 			clock-frequency = <100000>;
 			status = "okay";
 
-			/*
-			 * Placeholder for the NFC chip.
-			 * You may need to change compatible and reg (I2C address).
-			 */
-			nfc_chip_placeholder: nfc_chip@50 { // 0x50 is the address selected for the PN7160
-				compatible = "nxp,pn7160"; // Example compatible string
-				reg = <0x50>;
-				status = "okay";
-				// Add other properties like interrupt GPIOs if needed
-			};
 		};
 	};
 
-	/*
-	 * ------------------------------------------------------------------
-	 * fragment@2a: Configure hardware PWM on GPIO18 for Pi5
-	 * ------------------------------------------------------------------
-	 */
-	fragment@2a {
-		target = <&rp1_pwm>;
+	i2c_cam_frag: fragment@10 {
+		target = <&i2c_csi_dsi>;
 		__overlay__ {
-			pinctrl-names = "default";
-			pinctrl-0 = <&pwm0_gpio18_pi5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
-		};
-	};
 
-	/*
-	 * ------------------------------------------------------------------
-	 * fragment@2b: GPIO18 pin configuration for PWM (Pi5)
-	 * ------------------------------------------------------------------
-	 */
-	fragment@2b {
-		target = <&gpio>;
-		__overlay__ {
-			pwm0_gpio18_pi5: pwm0_gpio18_pi5 {
-				brcm,pins = <18>;
-				brcm,function = <3>;    // Alt3 = PWM for Pi5
-				brcm,pull = <0>;        // No pull
-			};
-		};
-	};
+			#include "imx219.dtsi"
 
-	/*
-	 * ------------------------------------------------------------------
-	 * fragment@2c: PWM backlight device
-	 * ------------------------------------------------------------------
-	 */
-	fragment@2c {
-		target-path = "/";
-		__overlay__ {
-			backlight: backlight {
-				compatible = "pwm-backlight";
-				pwms = <&rp1_pwm 2 50000 0>; // Channel 2 for GPIO18 on Pi5
-				brightness-levels = <0 4 8 16 32 64 128 255>;
-				default-brightness-level = <6>;
-				enable-gpios = <&gpio 18 0>;
-				status = "okay";
+			vcm: ad5398@c {
+				compatible = "adi,ad5398";
+				reg = <0x0c>;
+				status = "disabled";
+				VANA-supply = <&cam1_reg>;
 			};
 		};
 	};
@@ -300,4 +324,4 @@
 		/* Optional named parameter to enable LSM6DSL if needed */
 		lsm6dsl = <0>,"+0";
 	};
-};
+}; 
