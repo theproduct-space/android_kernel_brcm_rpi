@@ -90,6 +90,39 @@
 
     /*
      * ------------------------------------------------------------------
+     *  fragment@3: DSI panel at dsi1
+     * ------------------------------------------------------------------
+     */
+    dsi_frag: fragment@3 {
+        target = <&dsi1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            port {
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+
+            dsi_panel: dsi_panel@0 {
+                reg = <0>;
+                compatible = "waveshare,10.1-dsi-touch-a,4lane";
+                rotation = <270>;
+                status = "okay";
+
+                port {
+                    panel_in: endpoint {
+                        remote-endpoint = <&dsi_out>;
+                    };
+                };
+            };
+        };
+    };
+
+    /*
+     * ------------------------------------------------------------------
      *  fragment@A_pinctrl: Configure GPIO18 for PWM0 function
      * ------------------------------------------------------------------
      */
@@ -143,41 +176,6 @@
         //         };  
         //     };
         // };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@3: DSI panel at dsi1 (with hardware PWM backlight)
-     * ------------------------------------------------------------------
-     */
-    dsi_frag: fragment@3 {
-        target = <&dsi1>;
-        __overlay__ {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            status = "okay";
-
-            port {
-                dsi_out: endpoint {
-                    remote-endpoint = <&panel_in>;
-                };
-            };
-
-            dsi_panel: dsi_panel@0 {
-                reg = <0>;
-                compatible = "waveshare,10.1-dsi-touch-a,4lane";
-
-                /* Tie in our PWM-based backlight */
-                // backlight = <&hw_pwm_backlight>;
-                status = "okay";
-
-                port {
-                    panel_in: endpoint {
-                        remote-endpoint = <&dsi_out>;
-                    };
-                };
-            };
-        };
-    };
 
     /*
      * ------------------------------------------------------------------
@@ -336,6 +334,20 @@
 
     /*
      * ------------------------------------------------------------------
+     *  fragment@10: Enable i2c0 for camera
+     * ------------------------------------------------------------------
+     */
+    fragment@10 {
+        target = <&i2c0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+        };
+    };
+
+    /*
+     * ------------------------------------------------------------------
      *  __overrides__ Section
      * ------------------------------------------------------------------
      */
@@ -354,5 +366,6 @@
         10_1_inch_b        = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-b";
         10_1_inch_b_4lane  = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-b,4lane";
         lsm6dsl = <0>,"+0";
+        rotation = <&dsi_panel>, "rotation:0";
     };
 };
