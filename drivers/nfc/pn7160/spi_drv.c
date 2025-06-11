@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (C) 2015, The Linux Foundation. All rights reserved.
- * Copyright 2013-2021,2023 NXP
+ * Copyright 2013-2021,2023,2025 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -144,7 +144,6 @@ static irqreturn_t spi_irq_handler(int irq, void *dev_id)
 int nfc_spi_read(struct nfc_dev *nfc_dev, char *buf, size_t count, int timeout)
 {
 	int ret;
-	int cmd_length = 0;
 	struct spi_dev *spi_dev = &nfc_dev->spi_dev;
 	struct platform_gpio *nfc_gpio = &nfc_dev->configs.gpio;
 
@@ -484,21 +483,19 @@ err:
 	return ret;
 }
 
-int nfc_spi_dev_remove(struct spi_device *client)
+void nfc_spi_dev_remove(struct spi_device *client)
 {
-	int ret = 0;
 	struct nfc_dev *nfc_dev = NULL;
 
 	pr_info("%s: remove device\n", __func__);
 	nfc_dev = dev_get_drvdata(&client->dev);
 	if (!nfc_dev) {
 		pr_err("%s: device doesn't exist anymore\n", __func__);
-		ret = -ENODEV;
-		return ret;
+		return;
 	}
 	if (nfc_dev->dev_ref_count > 0) {
 		pr_err("%s: device already in use\n", __func__);
-		return -EBUSY;
+		return;
 	}
 	device_init_wakeup(&client->dev, false);
 	free_irq(client->irq, nfc_dev);
@@ -509,7 +506,6 @@ int nfc_spi_dev_remove(struct spi_device *client)
 	kfree(nfc_dev->read_kbuf);
 	kfree(nfc_dev->write_kbuf);
 	kfree(nfc_dev);
-	return ret;
 }
 
 int nfc_spi_dev_suspend(struct device *device)

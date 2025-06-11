@@ -1,18 +1,10 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/gpio/gpio.h>    // For GPIO_ACTIVE_*, if needed
-#include <dt-bindings/interrupt-controller/irq.h>  // If needed for the <X 2> style
-
-
 /{
     compatible = "brcm,bcm2712";
 
-    /*
-     * ------------------------------------------------------------------
-     *  Battery definition for 10,000 mAh LiPo
-     * ------------------------------------------------------------------
-     */
+    // --- Battery Definition ---
     lipo_battery: battery {
         compatible = "simple-battery";
         voltage-min-design-microvolt = <3000000>;
@@ -21,12 +13,7 @@
         charge-full-design-microamp-hours = <10000000>;
     };
 
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@0: Configure i2c1 on pins 10/11
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@0: Enable i2c1 ---
     fragment@0 {
         target = <&i2c1>;
         __overlay__ {
@@ -36,37 +23,41 @@
         };
     };
 
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@1: GPIO pins for Goodix touchscreen on i2c6
-     *  (Use rp1_gpio instead of the old &gpio)
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@1: GPIO Pin Groups ---
     fragment@1 {
         target = <&rp1_gpio>;
         __overlay__ {
-
-            /* Define a pin group for Goodix's IRQ and Reset lines. */
+            nfc_pins: nfc_pin_group {
+                pins = "gpio17", "gpio19", "gpio26";
+                function = "gpio";
+                bias-pull-up;
+            };
             goodix_pins: goodix_pins {
                 pins = "gpio2", "gpio3";
                 function = "gpio";
-                bias-pull-up;  /* Both pins pulled up */
+                bias-pull-up;
+            };
+            pinctrl_charger: pinctrl_charger {
+                pins = "gpio24";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            pwm_pins: pwm_pins {
+                pins = "gpio18";
+                function = "pwm0";
+                bias-pull-up;
             };
             
-            nfc_pins: nfc_pin_group {
-                /* Define GPIOs used by the NFC chip */
-                brcm,pins = <17 19>;      /* IRQ pin, VEN pin */
-                brcm,function = <0 0>;    /* Both as regular GPIO (0=Input, 1=Output) */
-                brcm,pull = <0 0>;        /* No internal pull-up/down */
+            cam_gpio1_pin_cfg: cam_gpio1_pinctrl_settings {
+                pins = "gpio35";
+                function = "gpio";
+                bias-pull-up;
             };
         };
     };
 
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@2: Goodix touchscreen on i2c6
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@2: Goodix Touchscreen on i2c6 ---
     i2c_frag: fragment@2 {
         target = <&i2c6>;
         __overlay__ {
@@ -77,17 +68,12 @@
             gt9110: gt9110@14 {
                 compatible = "goodix,gt9110";
                 reg = <0x14>;
-
-                /* Use the newly-defined pin group for IR/Reset */
                 pinctrl-names = "default";
                 pinctrl-0 = <&goodix_pins>;
-
-                /* Use &rp1_gpio as the interrupt parent */
                 interrupt-parent = <&rp1_gpio>;
-                interrupts = <3 1>;    // pin 3, likely "falling edge" or "high"? (check)
+                interrupts = <3 1>;
                 irq-gpios = <&rp1_gpio 3 0>;
                 reset-gpios = <&rp1_gpio 2 0>;
-
                 touchscreen-size-x = <1280>;
                 touchscreen-size-y = <800>;
                 touchscreen-swapped-x-y;
@@ -96,135 +82,41 @@
         };
     };
 
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@3: DSI panel at dsi1
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@3: DSI Panel ---
     dsi_frag: fragment@3 {
         target = <&dsi1>;
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
             status = "okay";
-
             port {
-                dsi_out: endpoint {
-                    remote-endpoint = <&panel_in>;
-                };
+                dsi_out: endpoint { remote-endpoint = <&panel_in>; };
             };
-
             dsi_panel: dsi_panel@0 {
                 reg = <0>;
                 compatible = "waveshare,10.1-dsi-touch-a,4lane";
                 rotation = <270>;
                 status = "okay";
-
                 port {
-                    panel_in: endpoint {
-                        remote-endpoint = <&dsi_out>;
-                    };
+                    panel_in: endpoint { remote-endpoint = <&dsi_out>; };
                 };
             };
         };
     };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@A_pinctrl: Configure GPIO18 for PWM0 function
-     * ------------------------------------------------------------------
-     */
-
-    fragment@A_pinctrl {
-        target = <&rp1_gpio>;
-        __overlay__ {
-            pwm_pins: pwm_pins {
-                pins = "gpio18";
-                function = "pwm0";
-                 bias-pull-up;  /* Both pins pulled up */
-            };
-        };
-    };
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@B_pwm_controller: Enable PWM controller on rp1_pwm0
-     * ------------------------------------------------------------------
-     */
-    fragment@B_pwm_controller {
-        target = <&rp1_pwm0>;
-        __overlay__ {
-            pinctrl-names = "default";
-            pinctrl-0 = <&pwm_pins>;
-            /* in Hz */
-			/* Max supported frequency is 76.8MHz */
-			/* https://forums.raspberrypi.com/viewtopic.php?p=2199962#p2199885 */
-			assigned-clock-rates = <75000000>;
-            status = "okay";
-        };
-    };
-
     
-    // /*
-    //  * ------------------------------------------------------------------
-    //  *  fragment@C_backlight_device: Create a backlight device using PWM0
-    //  * ------------------------------------------------------------------
-    //  */
-        // fragment@C_backlight_device {
-        //     target_path = "/";
-        //         __overlay__ {
-        //         hw_pwm_backlight: backlight {
-        //             compatible = "pwm-backlight";
-        //             /* channel=0, period=50000 ns => 20kHz, normal polarity */
-        //             pwms = <&rp1_pwm0 2 50000 0>;
-
-        //             /* Simple brightness table */
-        //             brightness-levels = <0 4 8 16 32 64 128 255>;
-        //             default-brightness-level = <6>;
-        //             status = "okay";
-        //         };  
-        //     };
-        // };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@4: LSM6DSL IMU on i2c1 at 0x6A
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@4: LSM6DSL IMU on i2c1 ---
     fragment@4 {
         target = <&i2c1>;
         __overlay__ {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            status = "okay";
-
             lsm6dsl: lsm6dsl@6a {
                 compatible = "st,lsm6dsl";
                 reg = <0x6a>;
                 status = "okay";
             };
-            pn7160_nfc: nfc@28 {
-                compatible = "nxp,pn7160";
-                reg = <0x28>;
-                status = "okay";
-
-                interrupt-parent = <&rp1_gpio>;
-                interrupts = <17 IRQ_TYPE_EDGE_RISING>;
-
-                /* VEN pin is on GPIO 19 */
-                ven-gpios = <&rp1_gpio 19 GPIO_ACTIVE_HIGH>; 
-
-                pinctrl-names = "default";
-                pinctrl-0 = <&nfc_pins>;
-            };
         };
     };
 
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@5: Enable i2c3 and BQ charger/gauge
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@5: Charger on i2c3 ---
     fragment@5 {
         target = <&i2c3>;
         __overlay__ {
@@ -232,17 +124,13 @@
             #size-cells = <0>;
             pinctrl-0 = <&rp1_i2c3_22_23>;
             status = "okay";
-
             charger: charger@6a {
                 compatible = "ti,bq25890";
                 reg = <0x6a>;
-
                 pinctrl-names = "default";
                 pinctrl-0 = <&pinctrl_charger>;
-
-                /* Use rp1_gpio as interrupt parent */
                 interrupt-parent = <&rp1_gpio>;
-                interrupts = <24 2>; /* If pin 24 is used, mode=2 might be falling edge */
+                interrupts = <24 2>;
                 ti,battery-regulation-voltage = <4200000>;
                 ti,charge-current = <3000000>;
                 ti,termination-current = <200000>;
@@ -255,7 +143,6 @@
                 ti,use-ilim-pin;
                 status = "okay";
             };
-
             fuel_gauge: fuel_gauge@55 {
                 compatible = "ti,bq27411";
                 reg = <0x55>;
@@ -265,84 +152,23 @@
         };
     };
 
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@6: Define pinctrl_charger for pin 24
-     * ------------------------------------------------------------------
-     */
-    fragment@6 {
+    // --- FRAGMENT@8: GPIO Hog for CAM_GPIO1 ---
+    fragment@8 {
         target = <&rp1_gpio>;
         __overlay__ {
-            pinctrl_charger: pinctrl_charger {
-                pins = "gpio24";
-                function = "gpio";
-                bias-pull-up;
-            };
-        };
-    };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@7: Configure i2c2 for NFC
-     * ------------------------------------------------------------------
-     */
-    // fragment@7 {
-    //     target = <&i2c2>;
-    //     __overlay__ {
-    //         #address-cells = <1>;
-    //         #size-cells = <0>;
-    //         pinctrl-0 = <&rp1_i2c2_12_13>;
-    //         clock-frequency = <100000>;
-    //         status = "okay";
-    //     };
-    // };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@8: Enable CAM_GPIO1 pin
-     * ------------------------------------------------------------------
-     */
-    fragment@8 {
-        target = <&rp1_gpio>; // Target the RP1 GPIO controller, which also handles pinctrl for its pins
-
-        __overlay__ {
-            // 1. Pinctrl node (as you provided)
-            // This node will become a child of &rp1_gpio after the overlay is applied.
-            // Its label 'cam_gpio1_pin_cfg' allows it to be referenced by pinctrl-0.
-            cam_gpio1_pin_cfg: cam_gpio1_pinctrl_settings {
-                // IMPORTANT: "CAM_GPIO1" here must be a name the pinctrl driver for &rp1_gpio
-                // understands and can map to the physical pin (e.g., RP1 GPIO 28).
-                // If your pinctrl driver expects raw pin numbers, you might need
-                // device-specific properties like `brcm,pins = <28>;` instead of `pins = "CAM_GPIO1";`.
-                // And `brcm,function = <1>;` (for output) instead of `function = "gpio";`
-                // And `brcm,pull = <2>;` (for pull-up) instead of `bias-pull-up;`
-                // However, we'll use your provided generic syntax first.
-                pins = "gpio35";      // Pin identifier string (e.g., maps to RP1 GPIO 28)
-                function = "gpio";       // Set pinmux to GPIO function
-                bias-pull-up;            // Enable internal pull-up resistor
-            };
-
-            // 2. GPIO Hog node to set the pin high
-            // This node will also become a child of &rp1_gpio.
             cam_gpio1_set_output_high: cam_gpio1_hog_control {
                 compatible = "gpio-hog";
-                // This gpios property MUST use the numeric offset of the GPIO within the controller.
-                // Replace '28' with the actual GPIO number for CAM_GPIO1 on the RP1 controller.
-                gpios = <&rp1_gpio 35 GPIO_ACTIVE_HIGH>; // GPIO 28, active-high logic.
-                                                         // GPIO_ACTIVE_HIGH indicates the pin's natural "on" state.
-                output-high;          // Configure as output, and set its initial state to high.
+                gpios = <35 0>; // GPIO 35, active-high
+                output-high;
                 pinctrl-names = "default";
-                pinctrl-0 = <&cam_gpio1_pin_cfg>; // Apply the pinctrl settings defined above.
-                line-name = "cam-gpio1-enable";   // Optional: a descriptive name for /sys/kernel/debug/gpio
-                status = "okay";      // This ensures this GPIO hog node is enabled and processed.
+                pinctrl-0 = <&cam_gpio1_pin_cfg>;
+                line-name = "cam-gpio1-enable";
+                status = "okay";
             };
         };
     };
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@10: Enable i2c0 for camera
-     * ------------------------------------------------------------------
-     */
+
+    // --- FRAGMENT@9: Enable i2c0 ---
     fragment@9 {
         target = <&i2c0>;
         __overlay__ {
@@ -352,24 +178,45 @@
         };
     };
 
-    /*
-     * ------------------------------------------------------------------
-     *  __overrides__ Section
-     * ------------------------------------------------------------------
-     */
+    // --- FRAGMENT@A & B: PWM Backlight Control ---
+    fragment@A_pinctrl {
+        target = <&rp1_gpio>;
+        __overlay__ {
+             /* Already defined in fragment@1 */
+        };
+    };
+    fragment@B_pwm_controller {
+        target = <&rp1_pwm0>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&pwm_pins>;
+            assigned-clock-rates = <75000000>;
+            status = "okay";
+        };
+    };
+
+    // --- FRAGMENT for PN7160 NFC ---
+    fragment@NFC {
+        target = <&i2c1>; // Target the same bus as fragment@0
+        __overlay__ {
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,pn7160";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>; // Links to the group in fragment@1
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <17 1>; // IRQ_TYPE_EDGE_RISING
+                ven-gpios = <&rp1_gpio 19 0>; // GPIO_ACTIVE_HIGH
+                dwl-gpios = <&rp1_gpio 26 0>; // GPIO_ACTIVE_HIGH
+            };
+        };
+    };
+
+    // --- Overrides Section ---
     __overrides__ {
         4_0_inch_a         = <&dsi_panel>, "compatible=waveshare,4.0-dsi-touch-a";
         5_0_inch_a         = <&dsi_panel>, "compatible=waveshare,5.0-dsi-touch-a";
-        5_5_inch_a         = <&dsi_panel>, "compatible=waveshare,5.5-dsi-touch-a";
-        7_0_inch_a         = <&dsi_panel>, "compatible=waveshare,7.0-dsi-touch-a";
-        7_0_inch_b         = <&dsi_panel>, "compatible=waveshare,7.0-dsi-touch-b";
-        7_0_inch_c         = <&dsi_panel>, "compatible=waveshare,7.0-dsi-touch-c";
-        8_0_inch_a         = <&dsi_panel>, "compatible=waveshare,8.0-dsi-touch-a";
-        8_0_inch_a_4lane   = <&dsi_panel>, "compatible=waveshare,8.0-dsi-touch-a,4lane";
-        8_1_inch_a         = <&dsi_panel>, "compatible=waveshare,8.1-dsi-touch-a";
-        10_1_inch_a        = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-a";
-        10_1_inch_a_4lane  = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-a,4lane";
-        10_1_inch_b        = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-b";
         10_1_inch_b_4lane  = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-b,4lane";
         lsm6dsl = <0>,"+0";
         rotation = <&dsi_panel>, "rotation:0";

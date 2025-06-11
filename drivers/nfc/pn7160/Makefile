@@ -1,8 +1,10 @@
-# SPDX-License-Identifier: GPL-2.0-only
-#
-# Makefile for PN7160 NFC driver
-#
-nxpnfc_i2c-objs  = i2c_drv.o common.o
+KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 
-obj-$(CONFIG_NXP_NFC_I2C)     += nxpnfc_i2c
+all:
+	$(MAKE) -C $(KERNEL_SRC) M=$(shell pwd) modules $(KBUILD_OPTIONS)
 
+modules_install:
+	$(MAKE) INSTALL_MOD_STRIP=1 -C $(KERNEL_SRC) M=$(shell pwd) modules_install
+
+clean:
+	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean

@@ -1585,7 +1585,7 @@ CONFIG_RFKILL_INPUT=y
 # CONFIG_NET_9P is not set
 # CONFIG_CAIF is not set
 # CONFIG_CEPH_LIB is not set
-# CONFIG_NFC is not set
+CONFIG_NFC=y
 CONFIG_NXP_NFC_I2C=y
 # CONFIG_PSAMPLE is not set
 # CONFIG_NET_IFE is not set
