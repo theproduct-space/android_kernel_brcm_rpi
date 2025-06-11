@@ -30,7 +30,8 @@
     fragment@0 {
         target = <&i2c1>;
         __overlay__ {
-            pinctrl-0 = <&rp1_i2c1_10_11>;
+            #address-cells = <1>;
+            #size-cells = <0>;
             status = "okay";
         };
     };
@@ -50,6 +51,13 @@
                 pins = "gpio2", "gpio3";
                 function = "gpio";
                 bias-pull-up;  /* Both pins pulled up */
+            };
+            
+            nfc_pins: nfc_pin_group {
+                /* Define GPIOs used by the NFC chip */
+                brcm,pins = <17 19>;      /* IRQ pin, VEN pin */
+                brcm,function = <0 0>;    /* Both as regular GPIO (0=Input, 1=Output) */
+                brcm,pull = <0 0>;        /* No internal pull-up/down */
             };
         };
     };
@@ -194,8 +202,23 @@
                 reg = <0x6a>;
                 status = "okay";
             };
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,pn7160";
+                reg = <0x28>;
+                status = "okay";
+
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <17 IRQ_TYPE_EDGE_RISING>;
+
+                /* VEN pin is on GPIO 19 */
+                ven-gpios = <&rp1_gpio 19 GPIO_ACTIVE_HIGH>; 
+
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+            };
         };
     };
+
 
     /*
      * ------------------------------------------------------------------
@@ -315,29 +338,12 @@
             };
         };
     };
-
-    /*
-     * ------------------------------------------------------------------
-     *  fragment@9: Set GPIO18 to high
-     * ------------------------------------------------------------------
-     */
-    fragment@9 {
-        target = <&rp1_gpio>;
-        __overlay__ {
-            gpio18_high: gpio18_high {
-                pins = "gpio18";
-                function = "gpio";
-                output-high;
-            };
-        };
-    };
-
     /*
      * ------------------------------------------------------------------
      *  fragment@10: Enable i2c0 for camera
      * ------------------------------------------------------------------
      */
-    fragment@10 {
+    fragment@9 {
         target = <&i2c0>;
         __overlay__ {
             #address-cells = <1>;
