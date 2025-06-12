@@ -200,15 +200,16 @@
         target = <&i2c1>; // Target the same bus as fragment@0
         __overlay__ {
             pn7160_nfc: nfc@28 {
-                compatible = "nxp,pn7160";
+                compatible = "nxp,nxpnfc";
                 reg = <0x28>;
                 status = "okay";
                 pinctrl-names = "default";
                 pinctrl-0 = <&nfc_pins>; // Links to the group in fragment@1
                 interrupt-parent = <&rp1_gpio>;
-                interrupts = <17 1>; // IRQ_TYPE_EDGE_RISING
-                ven-gpios = <&rp1_gpio 19 0>; // GPIO_ACTIVE_HIGH
-                dwl-gpios = <&rp1_gpio 26 0>; // GPIO_ACTIVE_HIGH
+                interrupts = <17 8>; // IRQ_TYPE_LEVEL_HIGH (8) instead of EDGE_RISING (1)
+                nxp,nxpnfc-irq = <&rp1_gpio 17 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 19 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 26 0>;
             };
         };
     };

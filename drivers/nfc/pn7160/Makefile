@@ -1,10 +1,14 @@
-KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+#
+# Makefile for the NXP PN7160 NFC driver
+#
 
-all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(shell pwd) modules $(KBUILD_OPTIONS)
+# Define the object files needed for the I2C version of the driver.
+# This creates a composite object named 'nxpnfc_i2c.o' from two source files.
+nxpnfc_i2c-objs   := i2c_drv.o common.o
 
-modules_install:
-	$(MAKE) INSTALL_MOD_STRIP=1 -C $(KERNEL_SRC) M=$(shell pwd) modules_install
+# Define the object files needed for the SPI version.
+nxpnfc_spi-objs   := spi_drv.o common.o
 
-clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean
+# Add the final driver objects to the build if their Kconfig option is enabled.
+obj-$(CONFIG_NXP_NFC_I2C)   += nxpnfc_i2c.o
+obj-$(CONFIG_NXP_NFC_SPI)   += nxpnfc_spi.o
