@@ -57,11 +57,14 @@
                 pins = "gpio18";
                 function = "pwm0";
             };
-            bl_regulator: bl_regulator {
+
+            gpio16_pin_cfg: gpio16_pinctrl_settings {
                 pins = "gpio16";
                 function = "gpio";
                 bias-pull-up;
+                output-high; // Set pins high initiall
             };
+
         };
     };
 
@@ -160,19 +163,31 @@
         };
     };
 
-    // --- FRAGMENT@8: GPIO Hog for CAM_GPIO1 ---
+    // --- FRAGMENT@8: GPIO Hog for CAM_GPIO1 and GPIO16 ---
     fragment@8 {
         target = <&rp1_gpio>;
         __overlay__ {
             cam_gpio1_set_output_high: cam_gpio1_hog_control {
-                compatible = "gpio-hog";
-                gpios = <35 0>; // GPIO 35, active-high
+                gpio-hog;  // Remove 'compatible = "gpio-hog"'
+                gpios = <35 0>;
                 output-high;
-                pinctrl-names = "default";
-                pinctrl-0 = <&cam_gpio1_pin_cfg>;
                 line-name = "cam-gpio1-enable";
-                status = "okay";
             };
+
+            gpio16_set_output_high: gpio16_hog_control {
+                gpio-hog;  // Remove 'compatible = "gpio-hog"'
+                gpios = <16 0>;
+                output-high;
+                line-name = "gpio16-force-high";
+            };
+        };
+    };
+
+    // --- NEW FRAGMENT to disable conflicting peripherals ---
+    fragment@disable_uart0 {
+        target = <&uart0>;
+        __overlay__ {
+            status = "disabled";
         };
     };
 
@@ -224,20 +239,19 @@
         };
     };
 
-fragment@B_backlight {
-        target-path = "/";
-        __overlay__ {
+    fragment@B_backlight {
+            target-path = "/";
+            __overlay__ {
 
-            pwm_backlight: backlight {
-                compatible = "pwm-backlight";
-                pwms = <&rp1_pwm0 2 25000 0>; 
-                brightness-levels = <0 6 8 12 16 24 32 40 48 64 96 128 160 192 224 255>;
-                default-brightness-level = <8>;
-                enable-gpios = <&rp1_gpio 16 1>;
-                status = "okay";
+                pwm_backlight: backlight {
+                    compatible = "pwm-backlight";
+                    pwms = <&rp1_pwm0 2 25000 0>; 
+                    brightness-levels = <0 6 8 12 16 24 32 40 48 64 96 128 160 192 224 255>;
+                    default-brightness-level = <8>;
+                    status = "okay";
+                };
             };
         };
-    };
 
     // --- Overrides Section ---
     __overrides__ {
