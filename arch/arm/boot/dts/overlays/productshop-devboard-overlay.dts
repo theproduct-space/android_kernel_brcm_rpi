@@ -1,6 +1,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/pwm/pwm.h>
+
 /{
     compatible = "brcm,bcm2712";
 
@@ -19,6 +21,7 @@
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c1_10_11>;
             status = "okay";
         };
     };
@@ -28,9 +31,10 @@
         target = <&rp1_gpio>;
         __overlay__ {
             nfc_pins: nfc_pin_group {
-                pins = "gpio17", "gpio19", "gpio26";
+                pins = "gpio14", "gpio15", "gpio26";
                 function = "gpio";
                 bias-pull-up;
+                output-high; // Set pins high initially
             };
             goodix_pins: goodix_pins {
                 pins = "gpio2", "gpio3";
@@ -46,7 +50,7 @@
             pwm_pins: pwm_pins {
                 pins = "gpio18";
                 function = "pwm0";
-                bias-pull-up;
+                bias-pull-down;
             };
             
             cam_gpio1_pin_cfg: cam_gpio1_pinctrl_settings {
@@ -54,6 +58,7 @@
                 function = "gpio";
                 bias-pull-up;
             };
+
         };
     };
 
@@ -178,6 +183,34 @@
         };
     };
 
+    // --- FRAGMENT@10: NFC on i2c2 ---
+    fragment@10 {
+        target = <&i2c2>;
+        
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c2_12_13>; // For GPIO12 (SDA) and GPIO13 (SCL)
+            status = "okay";
+            
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,nxpnfc";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+                
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <14 8>; /* GPIO14, IRQ_TYPE_LEVEL_HIGH */
+                /* NXP-specific GPIO properties */
+                nxp,nxpnfc-irq = <&rp1_gpio 14 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 15 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 26 0>; //TODO Desactivate this PIN sinse it's alocated to LTE on the board
+            };
+
+        };
+    };
+
     // --- FRAGMENT@A & B: PWM Backlight Control ---
     fragment@A_pinctrl {
         target = <&rp1_gpio>;
@@ -190,26 +223,20 @@
         __overlay__ {
             pinctrl-names = "default";
             pinctrl-0 = <&pwm_pins>;
-            assigned-clock-rates = <75000000>;
             status = "okay";
         };
     };
 
-    // --- FRAGMENT for PN7160 NFC ---
-    fragment@NFC {
-        target = <&i2c1>; // Target the same bus as fragment@0
+    // --- FRAGMENT for PWM Backlight at 50% ---
+    fragment@pwm_backlight {
+        target-path = "/";
         __overlay__ {
-            pn7160_nfc: nfc@28 {
-                compatible = "nxp,nxpnfc";
-                reg = <0x28>;
+            pwm_backlight: backlight {
+                compatible = "pwm-backlight";
+                pwms = <&rp1_pwm0 2 50000 1>; // Inverted polarity
+                brightness-levels = <0 25 50 75 100>;
+                default-brightness-level = <2>; // 50%
                 status = "okay";
-                pinctrl-names = "default";
-                pinctrl-0 = <&nfc_pins>; // Links to the group in fragment@1
-                interrupt-parent = <&rp1_gpio>;
-                interrupts = <17 8>; // IRQ_TYPE_LEVEL_HIGH (8) instead of EDGE_RISING (1)
-                nxp,nxpnfc-irq = <&rp1_gpio 17 0>;
-                nxp,nxpnfc-ven = <&rp1_gpio 19 0>;
-                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 26 0>;
             };
         };
     };
