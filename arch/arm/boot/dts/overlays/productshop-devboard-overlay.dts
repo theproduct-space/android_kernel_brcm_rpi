@@ -46,12 +46,6 @@
                 function = "gpio";
                 bias-pull-up;
             };
-
-            pwm_pins: pwm_pins {
-                pins = "gpio18";
-                function = "pwm0";
-                bias-pull-down;
-            };
             
             cam_gpio1_pin_cfg: cam_gpio1_pinctrl_settings {
                 pins = "gpio35";
@@ -59,6 +53,15 @@
                 bias-pull-up;
             };
 
+            pwm_pins: pwm_pins {
+                pins = "gpio18";
+                function = "pwm0";
+            };
+            bl_regulator: bl_regulator {
+                pins = "gpio16";
+                function = "gpio";
+                bias-pull-up;
+            };
         };
     };
 
@@ -81,7 +84,7 @@
                 reset-gpios = <&rp1_gpio 2 0>;
                 touchscreen-size-x = <1280>;
                 touchscreen-size-y = <800>;
-                touchscreen-swapped-x-y;
+                touchscreen-inverted-x;
                 touchscreen-inverted-y;
             };
         };
@@ -211,14 +214,8 @@
         };
     };
 
-    // --- FRAGMENT@A & B: PWM Backlight Control ---
-    fragment@A_pinctrl {
-        target = <&rp1_gpio>;
-        __overlay__ {
-             /* Already defined in fragment@1 */
-        };
-    };
-    fragment@B_pwm_controller {
+    // --- PWM Backlight Control ---
+    fragment@A_pwm_controller {
         target = <&rp1_pwm0>;
         __overlay__ {
             pinctrl-names = "default";
@@ -227,15 +224,16 @@
         };
     };
 
-    // --- FRAGMENT for PWM Backlight at 50% ---
-    fragment@pwm_backlight {
+fragment@B_backlight {
         target-path = "/";
         __overlay__ {
+
             pwm_backlight: backlight {
                 compatible = "pwm-backlight";
-                pwms = <&rp1_pwm0 2 50000 1>; // Inverted polarity
-                brightness-levels = <0 25 50 75 100>;
-                default-brightness-level = <2>; // 50%
+                pwms = <&rp1_pwm0 2 25000 0>; 
+                brightness-levels = <0 6 8 12 16 24 32 40 48 64 96 128 160 192 224 255>;
+                default-brightness-level = <8>;
+                enable-gpios = <&rp1_gpio 16 1>;
                 status = "okay";
             };
         };
