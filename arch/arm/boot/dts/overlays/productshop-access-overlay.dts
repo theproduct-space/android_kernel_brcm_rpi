@@ -1,0 +1,127 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- FRAGMENT@0: GPIO Pin Groups for Access Control ---
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            access_control_pins: access_control_pin_group {
+                pins = "gpio4", "gpio17", "gpio22", "gpio27";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            sensor_pins: sensor_pin_group {
+                pins = "gpio19", "gpio20", "gpio21";
+                function = "gpio";
+                bias-pull-up;
+            };
+        };
+    };
+
+    // --- FRAGMENT@1: GPIO Hogs for Access Control ---
+    fragment@1 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            // Access control outputs
+            gpio4_access_control: gpio4_hog {
+                gpio-hog;
+                gpios = <4 0>;
+                output-low;
+                line-name = "access-control-1";
+            };
+
+            gpio17_access_control: gpio17_hog {
+                gpio-hog;
+                gpios = <17 0>;
+                output-low;
+                line-name = "access-control-2";
+            };
+
+            gpio22_access_control: gpio22_hog {
+                gpio-hog;
+                gpios = <22 0>;
+                output-low;
+                line-name = "access-control-3";
+            };
+
+            gpio27_access_control: gpio27_hog {
+                gpio-hog;
+                gpios = <27 0>;
+                output-low;
+                line-name = "access-control-4";
+            };
+
+            // Sensor inputs (configured as inputs, no output directive)
+            gpio19_sensor: gpio19_hog {
+                gpio-hog;
+                gpios = <19 0>;
+                input;
+                line-name = "access-sensor-1";
+            };
+
+            gpio20_sensor: gpio20_hog {
+                gpio-hog;
+                gpios = <20 0>;
+                input;
+                line-name = "access-sensor-2";
+            };
+
+            gpio21_sensor: gpio21_hog {
+                gpio-hog;
+                gpios = <21 0>;
+                input;
+                line-name = "access-sensor-3";
+            };
+        };
+    };
+
+    // --- FRAGMENT@2: I2C Access Control Devices (if needed) ---
+    fragment@2 {
+        target = <&i2c0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            // Example: RFID reader or keypad controller
+            // access_controller: access@50 {
+            //     compatible = "generic,access-controller";
+            //     reg = <0x50>;
+            //     status = "okay";
+            // };
+        };
+    };
+
+    // --- FRAGMENT@3: HDMI Display Rotation ---
+    fragment@3 {
+        target = <&hdmi0>;
+        frag3: __overlay__ {
+            rotation = <270>;
+        };
+    };
+
+    // --- FRAGMENT@4: HDMI1 Display Rotation (if dual HDMI) ---
+    fragment@4 {
+        target = <&hdmi1>;
+        frag4: __overlay__ {
+            rotation = <270>;
+        };
+    };
+
+    // --- Overrides Section ---
+    __overrides__ {
+        // Allow runtime configuration of GPIO states
+        gpio4_state = <&gpio4_access_control>, "output-high?";
+        gpio17_state = <&gpio17_access_control>, "output-high?";
+        gpio22_state = <&gpio22_access_control>, "output-high?";
+        gpio27_state = <&gpio27_access_control>, "output-high?";
+        
+        // HDMI rotation overrides
+        hdmi0_rotation = <&frag3>, "rotation:0";
+        hdmi1_rotation = <&frag4>, "rotation:0";
+    };
+};
