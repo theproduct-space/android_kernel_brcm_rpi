@@ -1,0 +1,365 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- Battery Definition ---
+    lipo_battery: battery {
+        compatible = "simple-battery";
+        voltage-min-design-microvolt = <3000000>;
+        voltage-max-design-microvolt = <4200000>;
+        energy-full-design-microwatt-hours = <37000000>;
+        charge-full-design-microamp-hours = <10000000>;
+    };
+
+    // --- FRAGMENT@0: GPIO Pin Groups ---
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            // SPI4 pins - DISABLED (SPI4 is slave-only mode)
+            /*
+            spi4_pins: spi4_pins {
+                pins = "gpio8", "gpio9", "gpio10", "gpio11";
+                function = "spi4";
+            };
+            */
+
+            // Display control pins (touch removed, backlight switch removed)
+            display_pins: display_pins {
+                pins = "gpio17";  /* LCD_RESET */
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // Display PWM pin - MOVED TO SEPARATE OVERLAY
+            // pwm_pins: pwm_pins {
+            //     pins = "gpio18";
+            //     function = "pwm0";
+            // };
+
+            // NFC pins
+            nfc_pins: nfc_pin_group {
+                pins = "gpio2", "gpio3", "gpio46";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // LTE control pins
+            lte_pins: lte_pins {
+                pins = "gpio25", "gpio26", "gpio27";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // PMIC/Fuel gauge pins
+            pmic_pins: pmic_pins {
+                pins = "gpio6", "gpio14", "gpio21", "gpio24";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // NFC LED pin
+            nfc_led_pin: nfc_led_pin {
+                pins = "gpio19";
+                function = "gpio";
+                output-high;
+            };
+        };
+    };
+
+    // --- FRAGMENT@1: SPI4 for 12 inch display - DISABLED ---
+    // NOTE: SPI4 is slave-only mode, cannot be used for display control
+    /*
+    fragment@1 {
+        target = <&spi4>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi4_pins>;
+            status = "okay";
+
+            display_spi: display@0 {
+                compatible = "panel-spi";
+                reg = <0>;
+                spi-max-frequency = <10000000>;
+                spi-cpol;
+                spi-cpha;
+            };
+        };
+    };
+    */
+
+    // --- FRAGMENT@2: Display touchscreen I2C - DISABLED ---
+    // Touch disabled due to SPI issues
+    /*
+    fragment@2 {
+        target = <&i2c0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            touchscreen@14 {
+                compatible = "goodix,gt911";
+                reg = <0x14>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&display_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <20 2>;
+                irq-gpios = <&rp1_gpio 20 1>;
+                reset-gpios = <&rp1_gpio 7 1>;
+            };
+        };
+    };
+    */
+
+    // --- FRAGMENT@3: DSI Panel ---
+    fragment@3 {
+        target = <&dsi1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+            port {
+                dsi_out: endpoint { remote-endpoint = <&panel_in>; };
+            };
+            dsi_panel: dsi_panel@0 {
+                reg = <0>;
+                compatible = "himax,hx83102e-dsi-panel";
+                panel-width-mm = <142>;
+                panel-height-mm = <237>;
+                reset-gpios = <&rp1_gpio 17 1>;  /* LCD_RESET, GPIO_ACTIVE_LOW */
+                // backlight = <&pwm_backlight>; // Moved to separate overlay
+                status = "okay";
+                
+                display-timings {
+                    native-mode = <&timing0>;
+                    timing0: timing0 {
+                        clock-frequency = <154000000>;
+                        hactive = <1200>;
+                        vactive = <2000>;
+                        hfront-porch = <60>;
+                        hsync-len = <8>;
+                        hback-porch = <60>;
+                        vfront-porch = <25>;
+                        vsync-len = <2>;
+                        vback-porch = <25>;
+                        hsync-active = <0>;
+                        vsync-active = <0>;
+                        de-active = <1>;
+                        pixelclk-active = <0>;
+                    };
+                };
+                
+                port {
+                    panel_in: endpoint { remote-endpoint = <&dsi_out>; };
+                };
+            };
+        };
+    };
+    
+    // --- FRAGMENT@4: Camera I2C on i2c2 ---
+    fragment@4 {
+        target = <&i2c2>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c2_12_13>;
+            status = "okay";
+            
+            // Camera sensor would go here
+        };
+    };
+
+    // --- FRAGMENT@5: IMU on i2c3 ---
+    fragment@5 {
+        target = <&i2c3>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c3_22_23>;
+            status = "okay";
+            
+            // IMU
+            lsm6dsl: lsm6dsl@6a {
+                compatible = "st,lsm6dsl";
+                reg = <0x6a>;
+                status = "okay";
+            };
+            
+            // PMIC/Charger
+            charger: charger@6b {
+                compatible = "ti,bq25890";
+                reg = <0x6b>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&pmic_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <24 2>;
+                ti,battery-regulation-voltage = <4200000>;
+                ti,charge-current = <3000000>;
+                ti,termination-current = <200000>;
+                ti,precharge-current = <300000>;
+                ti,minimum-sys-voltage = <3500000>;
+                ti,boost-voltage = <5000000>;
+                ti,boost-max-current = <1000000>;
+                ti,input-current-limit = <3000000>;
+                charge-enable-gpios = <&rp1_gpio 21 0>;
+                qon-gpios = <&rp1_gpio 14 0>;
+                status = "okay";
+            };
+            
+            // Fuel Gauge
+            fuel_gauge: fuel_gauge@55 {
+                compatible = "ti,bq27411";
+                reg = <0x55>;
+                monitored-battery = <&lipo_battery>;
+                gpout-gpios = <&rp1_gpio 6 0>;
+                status = "okay";
+            };
+        };
+    };
+
+    // --- FRAGMENT@6: NFC using GPIO42/41 for I2C ---
+    fragment@6 {
+        target = <&i2c_gpio_nfc>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+            
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,nxpnfc";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+                
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <3 8>;
+                nxp,nxpnfc-irq = <&rp1_gpio 3 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 2 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 46 0>;
+            };
+        };
+    };
+
+    // --- FRAGMENT@7: GPIO I2C for NFC ---
+    fragment@7 {
+        target-path = "/";
+        __overlay__ {
+            i2c_gpio_nfc: i2c-gpio-nfc {
+                compatible = "i2c-gpio";
+                sda-gpios = <&rp1_gpio 42 (0 | 0x10)>;
+                scl-gpios = <&rp1_gpio 41 (0 | 0x10)>;
+                i2c-gpio,delay-us = <2>;
+                #address-cells = <1>;
+                #size-cells = <0>;
+            };
+        };
+    };
+
+    // --- FRAGMENT@8: LTE UART on UART2 ---
+    fragment@8 {
+        target = <&uart2>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&uart2_pins>;
+            status = "okay";
+        };
+    };
+
+    // --- FRAGMENT@9: UART2 pins configuration ---
+    fragment@9 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            uart2_pins: uart2_pins {
+                pins = "gpio4", "gpio5";
+                function = "uart2";
+            };
+        };
+    };
+
+    // --- FRAGMENT@10: LTE control GPIOs ---
+    fragment@10 {
+        target-path = "/";
+        __overlay__ {
+            lte_control {
+                compatible = "gpio-lte-control";
+                pinctrl-names = "default";
+                pinctrl-0 = <&lte_pins>;
+                perst-gpios = <&rp1_gpio 27 1>;
+                w-disable-gpios = <&rp1_gpio 26 1>;
+                wake-gpios = <&rp1_gpio 25 1>;
+            };
+        };
+    };
+
+    // --- PWM Controller for GPIO18 - MOVED TO SEPARATE OVERLAY ---
+    // fragment@A_pwm_controller {
+    //     target = <&rp1_pwm0>;
+    //     __overlay__ {
+    //         pinctrl-names = "default";
+    //         pinctrl-0 = <&pwm_pins>;
+    //         status = "okay";
+    //     };
+    // };
+
+    // --- PWM Backlight Control - MOVED TO SEPARATE OVERLAY ---
+    // fragment@B_backlight {
+    //     target-path = "/";
+    //     __overlay__ {
+    //         pwm_backlight: backlight {
+    //             compatible = "pwm-backlight";
+    //             pwms = <&rp1_pwm0 0 20000 0>; /* PWM0 channel 0, 20000ns period (50kHz), normal polarity */
+    //             brightness-levels = <0 4 8 16 32 48 64 96 128 160 192 224 240 255>;
+    //             default-brightness-level = <10>; /* 75% brightness */
+    //             status = "okay";
+    //         };
+    //     };
+    // };
+
+    // --- FRAGMENT@13: NFC LED ---
+    fragment@13 {
+        target-path = "/";
+        __overlay__ {
+            nfc_led {
+                compatible = "gpio-leds";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_led_pin>;
+                
+                led@0 {
+                    label = "nfc:activity";
+                    gpios = <&rp1_gpio 19 0>;
+                    default-state = "off";
+                };
+            };
+        };
+    };
+
+    // --- FRAGMENT@14: USB3 for LTE module - DISABLED ---
+    // Note: xhci node not found in device tree
+    /*
+    fragment@14 {
+        target = <&xhci>;
+        __overlay__ {
+            status = "okay";
+        };
+    };
+    */
+
+    // --- Overrides Section - DISABLED ---
+    // Note: References to undefined labels causing issues
+    /*
+    __overrides__ {
+        touch_invert_x = <&touchscreen>,"touchscreen-inverted-x?";
+        touch_invert_y = <&touchscreen>,"touchscreen-inverted-y?";
+        touch_size_x = <&touchscreen>,"touchscreen-size-x:0";
+        touch_size_y = <&touchscreen>,"touchscreen-size-y:0";
+        lsm6dsl = <0>,"+5";
+        nfc = <0>,"+6";
+        lte = <0>,"+8","+10";
+    };
+    */
+};

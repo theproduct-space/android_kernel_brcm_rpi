@@ -1,0 +1,43 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- GPIO Pin Configuration for NFC ---
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            nfc_pins: nfc_pin_group {
+                pins = "gpio2", "gpio3", "gpio46";
+                function = "gpio";
+                bias-pull-up;
+            };
+        };
+    };
+
+    // --- I2C Hardware Bus for NFC ---
+    fragment@1 {
+        target = <&i2c1>;  // Using hardware I2C1 instead of GPIO I2C
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c1_2_3>;  // I2C1 on GPIO2/GPIO3
+            status = "okay";
+            
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,nxpnfc";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+                
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <3 8>; /* GPIO3, IRQ_TYPE_LEVEL_LOW */
+                nxp,nxpnfc-irq = <&rp1_gpio 3 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 2 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 46 0>;
+            };
+        };
+    };
+};

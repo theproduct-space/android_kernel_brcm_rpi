@@ -1,0 +1,65 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // Battery Definition
+    lipo_battery: battery {
+        compatible = "simple-battery";
+        voltage-min-design-microvolt = <3000000>;
+        voltage-max-design-microvolt = <4200000>;
+        energy-full-design-microwatt-hours = <37000000>;
+        charge-full-design-microamp-hours = <10000000>;
+    };
+
+    // GPIO pins for I2C devices
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            pmic_pins: pmic_pins {
+                pins = "gpio6", "gpio14", "gpio21", "gpio24";
+                function = "gpio";
+                bias-pull-up;
+            };
+        };
+    };
+
+    // I2C3 for IMU and power management
+    fragment@1 {
+        target = <&i2c3>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c3_22_23>;
+            status = "okay";
+            
+            lsm6dsl@6a {
+                compatible = "st,lsm6dsl";
+                reg = <0x6a>;
+                status = "okay";
+            };
+            
+            charger@6b {
+                compatible = "ti,bq25890";
+                reg = <0x6b>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&pmic_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <6 8>; /* GPIO6, IRQ_TYPE_LEVEL_LOW */
+                ti,battery-regulation-voltage = <4200000>;
+                ti,charge-current = <2000000>;
+                ti,termination-current = <128000>;
+                ti,precharge-current = <128000>;
+                ti,minimum-sys-voltage = <3000000>;
+                ti,boost-voltage = <5126000>;
+                ti,boost-max-current = <1400000>;
+                ti,input-current-limit = <2000000>;
+                charge-enable-gpios = <&rp1_gpio 21 0>;
+                qon-gpios = <&rp1_gpio 24 0>;
+                monitored-battery = <&lipo_battery>;
+                status = "okay";
+            };
+        };
+    };
+};

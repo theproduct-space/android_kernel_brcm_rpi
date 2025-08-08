@@ -1,0 +1,264 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pwm/pwm.h>
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- Battery Definition ---
+    lipo_battery: battery {
+        compatible = "simple-battery";
+        voltage-min-design-microvolt = <3000000>;
+        voltage-max-design-microvolt = <4200000>;
+        energy-full-design-microwatt-hours = <37000000>;
+        charge-full-design-microamp-hours = <10000000>;
+    };
+
+    // --- FRAGMENT@0: Enable i2c1 ---
+    fragment@0 {
+        target = <&i2c1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c1_10_11>;
+            status = "okay";
+        };
+    };
+
+    // --- FRAGMENT@1: GPIO Pin Groups ---
+    fragment@1 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            nfc_pins: nfc_pin_group {
+                pins = "gpio14", "gpio15", "gpio26";
+                function = "gpio";
+                bias-pull-up;
+                output-high; // Set pins high initially
+            };
+            goodix_pins: goodix_pins {
+                pins = "gpio2", "gpio3";
+                function = "gpio";
+                bias-pull-up;
+            };
+            pinctrl_charger: pinctrl_charger {
+                pins = "gpio24";
+                function = "gpio";
+                bias-pull-up;
+            };
+            
+            cam_gpio1_pin_cfg: cam_gpio1_pinctrl_settings {
+                pins = "gpio35";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            pwm_pins: pwm_pins {
+                pins = "gpio18";
+                function = "pwm0";
+            };
+
+            gpio16_pin_cfg: gpio16_pinctrl_settings {
+                pins = "gpio16";
+                function = "gpio";
+                bias-pull-up;
+                output-high; // Set pins high initiall
+            };
+
+        };
+    };
+
+    // --- FRAGMENT@2: Goodix Touchscreen on i2c6 ---
+    i2c_frag: fragment@2 {
+        target = <&i2c6>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            gt9110: gt9110@14 {
+                compatible = "goodix,gt9110";
+                reg = <0x14>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&goodix_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <3 1>;
+                irq-gpios = <&rp1_gpio 3 0>;
+                reset-gpios = <&rp1_gpio 2 0>;
+                touchscreen-size-x = <1280>;
+                touchscreen-size-y = <800>;
+                touchscreen-inverted-x;
+                touchscreen-inverted-y;
+            };
+        };
+    };
+
+    // --- FRAGMENT@3: DSI Panel ---
+    dsi_frag: fragment@3 {
+        target = <&dsi1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+            port {
+                dsi_out: endpoint { remote-endpoint = <&panel_in>; };
+            };
+            dsi_panel: dsi_panel@0 {
+                reg = <0>;
+                compatible = "waveshare,10.1-dsi-touch-a,4lane";
+                rotation = <270>;
+                status = "okay";
+                port {
+                    panel_in: endpoint { remote-endpoint = <&dsi_out>; };
+                };
+            };
+        };
+    };
+    
+    // --- FRAGMENT@4: LSM6DSL IMU on i2c1 ---
+    fragment@4 {
+        target = <&i2c1>;
+        __overlay__ {
+            lsm6dsl: lsm6dsl@6a {
+                compatible = "st,lsm6dsl";
+                reg = <0x6a>;
+                status = "okay";
+            };
+        };
+    };
+
+    // --- FRAGMENT@5: Charger on i2c3 ---
+    fragment@5 {
+        target = <&i2c3>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c3_22_23>;
+            status = "okay";
+            charger: charger@6a {
+                compatible = "ti,bq25890";
+                reg = <0x6a>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&pinctrl_charger>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <24 2>;
+                ti,battery-regulation-voltage = <4200000>;
+                ti,charge-current = <3000000>;
+                ti,termination-current = <200000>;
+                ti,precharge-current = <300000>;
+                ti,minimum-sys-voltage = <3500000>;
+                ti,boost-voltage = <5000000>;
+                ti,boost-max-current = <1000000>;
+                ti,input-current-limit = <3000000>;
+                ti,iinlim-pin-enable;
+                ti,use-ilim-pin;
+                status = "okay";
+            };
+            fuel_gauge: fuel_gauge@55 {
+                compatible = "ti,bq27411";
+                reg = <0x55>;
+                monitored-battery = <&lipo_battery>;
+                status = "okay";
+            };
+        };
+    };
+
+    // --- FRAGMENT@8: GPIO Hog for CAM_GPIO1 and GPIO16 ---
+    fragment@8 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            cam_gpio1_set_output_high: cam_gpio1_hog_control {
+                gpio-hog;  // Remove 'compatible = "gpio-hog"'
+                gpios = <35 0>;
+                output-high;
+                line-name = "cam-gpio1-enable";
+            };
+
+            gpio16_set_output_high: gpio16_hog_control {
+                gpio-hog;  // Remove 'compatible = "gpio-hog"'
+                gpios = <16 0>;
+                output-high;
+                line-name = "gpio16-force-high";
+            };
+        };
+    };
+
+    // --- NEW FRAGMENT to disable conflicting peripherals ---
+    fragment@disable_uart0 {
+        target = <&uart0>;
+        __overlay__ {
+            status = "disabled";
+        };
+    };
+
+    // --- FRAGMENT@9: Enable i2c0 ---
+    fragment@9 {
+        target = <&i2c0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+        };
+    };
+
+    // --- FRAGMENT@10: NFC on i2c2 ---
+    fragment@10 {
+        target = <&i2c2>;
+        
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c2_12_13>; // For GPIO12 (SDA) and GPIO13 (SCL)
+            status = "okay";
+            
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,nxpnfc";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+                
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <14 8>; /* GPIO14, IRQ_TYPE_LEVEL_HIGH */
+                /* NXP-specific GPIO properties */
+                nxp,nxpnfc-irq = <&rp1_gpio 14 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 15 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 26 0>; //TODO Desactivate this PIN sinse it's alocated to LTE on the board
+            };
+
+        };
+    };
+
+    // --- PWM Backlight Control ---
+    fragment@A_pwm_controller {
+        target = <&rp1_pwm0>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&pwm_pins>;
+            status = "okay";
+        };
+    };
+
+    fragment@B_backlight {
+            target-path = "/";
+            __overlay__ {
+
+                pwm_backlight: backlight {
+                    compatible = "pwm-backlight";
+                    pwms = <&rp1_pwm0 2 25000 0>; 
+                    brightness-levels = <0 6 8 12 16 24 32 40 48 64 96 128 160 192 224 255>;
+                    default-brightness-level = <8>;
+                    status = "okay";
+                };
+            };
+        };
+
+    // --- Overrides Section ---
+    __overrides__ {
+        4_0_inch_a         = <&dsi_panel>, "compatible=waveshare,4.0-dsi-touch-a";
+        5_0_inch_a         = <&dsi_panel>, "compatible=waveshare,5.0-dsi-touch-a";
+        10_1_inch_b_4lane  = <&dsi_panel>, "compatible=waveshare,10.1-dsi-touch-b,4lane";
+        lsm6dsl = <0>,"+0";
+        rotation = <&dsi_panel>, "rotation:0";
+    };
+};

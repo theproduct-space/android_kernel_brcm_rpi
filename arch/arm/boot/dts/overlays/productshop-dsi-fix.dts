@@ -1,0 +1,54 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // Override the DSI panel compatible string
+    fragment@0 {
+        target = <&dsi1>;
+        __overlay__ {
+            dsi_panel@0 {
+                compatible = "himax,hx83102e-dsi-panel";
+                // Keep rest of configuration but override driver binding
+                reg = <0>;
+                panel-width-mm = <142>;
+                panel-height-mm = <237>;
+                reset-gpios = <&rp1_gpio 17 1>;
+                backlight = <&backlight>; // Reference our PWM backlight
+                status = "okay";
+                
+                display-timings {
+                    native-mode = <&timing0>;
+                    timing0: timing0 {
+                        clock-frequency = <154000000>;
+                        hactive = <1200>;
+                        vactive = <2000>;
+                        hfront-porch = <60>;
+                        hsync-len = <8>;
+                        hback-porch = <60>;
+                        vfront-porch = <25>;
+                        vsync-len = <2>;
+                        vback-porch = <25>;
+                        hsync-active = <0>;
+                        vsync-active = <0>;
+                        de-active = <1>;
+                        pixelclk-active = <0>;
+                    };
+                };
+                
+                port {
+                    panel_in: endpoint {
+                        remote-endpoint = <&dsi_out>;
+                    };
+                };
+            };
+            
+            port {
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+        };
+    };
+};

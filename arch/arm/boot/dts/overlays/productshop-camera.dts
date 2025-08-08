@@ -1,0 +1,71 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- Camera GPIO pins ---
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            camera_pins: camera_pins {
+                pins = "gpio12", "gpio13", "gpio20", "gpio21"; // I2C2 pins + control pins
+                function = "gpio";
+                bias-pull-up;
+            };
+            
+            camera_i2c_pins: camera_i2c_pins {
+                pins = "gpio12", "gpio13"; // I2C2 SDA/SCL
+                function = "i2c2";
+            };
+        };
+    };
+
+    // --- Enable I2C2 for camera ---
+    fragment@1 {
+        target = <&i2c4>; // Using i2c@80000 which should be i2c2
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&rp1_i2c2_12_13>; // Use predefined I2C2 pinctrl
+            status = "okay";
+            
+            // Generic camera sensor placeholder
+            camera_sensor@10 {
+                compatible = "ovti,ov5647"; // Common Pi camera sensor
+                reg = <0x10>;
+                status = "okay";
+                
+                clocks = <&cam0_clk>;
+                clock-names = "xclk";
+                
+                // Standard camera control pins
+                pwdn-gpios = <&rp1_gpio 20 1>;    // Power down
+                reset-gpios = <&rp1_gpio 21 1>;   // Reset
+                
+                port {
+                    camera_out: endpoint {
+                        remote-endpoint = <&csi_in>;
+                        clock-lanes = <0>;
+                        data-lanes = <1 2>;
+                    };
+                };
+            };
+        };
+    };
+
+    // --- CSI Interface ---
+    fragment@2 {
+        target = <&csi1>; // Use CSI1 interface
+        __overlay__ {
+            status = "okay";
+            
+            port {
+                csi_in: endpoint {
+                    remote-endpoint = <&camera_out>;
+                };
+            };
+        };
+    };
+};

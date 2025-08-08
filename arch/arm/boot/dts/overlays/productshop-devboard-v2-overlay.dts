@@ -1,0 +1,207 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    // --- Battery Definition ---
+    lipo_battery: battery {
+        compatible = "simple-battery";
+        voltage-min-design-microvolt = <3000000>;
+        voltage-max-design-microvolt = <4200000>;
+        energy-full-design-microwatt-hours = <37000000>;
+        charge-full-design-microamp-hours = <10000000>;
+    };
+
+    // --- FRAGMENT@0: GPIO Pin Groups ---
+    fragment@0 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            // Display control pins (no PWM - moved to separate overlay)
+            display_pins: display_pins {
+                pins = "gpio17";  /* LCD_RESET */
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // NFC pins
+            nfc_pins: nfc_pin_group {
+                pins = "gpio2", "gpio3", "gpio46";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // LTE control pins
+            lte_pins: lte_pins {
+                pins = "gpio25", "gpio26", "gpio27";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // PMIC pins
+            pmic_pins: pmic_pins {
+                pins = "gpio6", "gpio14", "gpio21", "gpio24";
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            // NFC LED pin
+            nfc_led_pin: nfc_led_pin {
+                pins = "gpio19";
+                function = "gpio";
+                bias-pull-up;
+                output-high;
+            };
+        };
+    };
+
+    // --- FRAGMENT@4: Camera I2C on i2c2 ---
+    fragment@4 {
+        target = <&i2c2>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c2_12_13>;
+            status = "okay";
+            
+            // Camera sensor would go here
+        };
+    };
+
+    // --- FRAGMENT@5: IMU on i2c3 ---
+    fragment@5 {
+        target = <&i2c3>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-0 = <&rp1_i2c3_22_23>;
+            status = "okay";
+            
+            lsm6dsl@6a {
+                compatible = "st,lsm6dsl";
+                reg = <0x6a>;
+                status = "okay";
+            };
+            
+            charger@6b {
+                compatible = "ti,bq25890";
+                reg = <0x6b>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&pmic_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <6 8>; /* GPIO6, IRQ_TYPE_LEVEL_LOW */
+                ti,battery-regulation-voltage = <4200000>;
+                ti,charge-current = <2000000>;
+                ti,termination-current = <128000>;
+                ti,precharge-current = <128000>;
+                ti,minimum-sys-voltage = <3000000>;
+                ti,boost-voltage = <5126000>;
+                ti,boost-max-current = <1400000>;
+                ti,input-current-limit = <2000000>;
+                charge-enable-gpios = <&rp1_gpio 21 0>;
+                qon-gpios = <&rp1_gpio 24 0>;
+                monitored-battery = <&lipo_battery>;
+                status = "okay";
+            };
+
+            fuel_gauge@55 {
+                compatible = "ti,bq27411";
+                reg = <0x55>;
+                gpout-gpios = <&i2c_gpio_nfc 0 0>;
+                status = "okay";
+            };
+        };
+    };
+
+    // --- FRAGMENT@6: NFC on i2c6 (separate I2C bus) ---
+    fragment@6 {
+        target = <&i2c6>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            pn7160_nfc: nfc@28 {
+                compatible = "nxp,nxpnfc";
+                reg = <0x28>;
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_pins>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <3 8>;
+                nxp,nxpnfc-irq = <&rp1_gpio 3 0>;
+                nxp,nxpnfc-ven = <&rp1_gpio 2 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 46 0>;
+            };
+        };
+    };
+
+    // --- FRAGMENT@7: I2C GPIO for NFC ---
+    fragment@7 {
+        target-path = "/";
+        __overlay__ {
+            i2c_gpio_nfc: i2c-gpio-nfc {
+                compatible = "i2c-gpio";
+                sda-gpios = <&rp1_gpio 2 0>;
+                scl-gpios = <&rp1_gpio 3 0>;
+                i2c-gpio,delay-us = <5>;
+                #address-cells = <1>;
+                #size-cells = <0>;
+            };
+        };
+    };
+
+    // --- FRAGMENT@8: UART2 ---
+    fragment@8 {
+        target = <&uart2>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&uart2_pins>;
+            status = "okay";
+        };
+    };
+
+    // --- FRAGMENT@9: UART2 pins ---
+    fragment@9 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            uart2_pins: uart2_pins {
+                pins = "gpio4", "gpio5";
+                function = "uart2";
+            };
+        };
+    };
+
+    // --- FRAGMENT@10: LTE Control ---
+    fragment@10 {
+        target-path = "/";
+        __overlay__ {
+            lte_control {
+                compatible = "gpio-lte-control";
+                pinctrl-names = "default";
+                pinctrl-0 = <&lte_pins>;
+                perst-gpios = <&rp1_gpio 25 1>;
+                w-disable-gpios = <&rp1_gpio 26 0>;
+                wake-gpios = <&rp1_gpio 27 0>;
+            };
+        };
+    };
+
+    // --- FRAGMENT@13: NFC LED ---
+    fragment@13 {
+        target-path = "/";
+        __overlay__ {
+            nfc_led {
+                compatible = "gpio-leds";
+                pinctrl-names = "default";
+                pinctrl-0 = <&nfc_led_pin>;
+                
+                led@0 {
+                    label = "nfc:activity";
+                    gpios = <&rp1_gpio 19 0>;
+                    default-state = "off";
+                };
+            };
+        };
+    };
+};
