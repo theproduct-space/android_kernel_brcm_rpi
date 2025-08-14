@@ -1,0 +1,83 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    dsi_frag: fragment@0 {
+        target = <&dsi1>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+            
+            port {
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+            
+            // ProductShop Himax HX83102E Panel as DSI device
+            panel@0 {
+                compatible = "himax,hx83102e", "himax,hx83102";
+                reg = <0>;  // DSI virtual channel
+                
+                // LCD reset pin according to ProductShop pinout  
+                reset-gpios = <&rp1_gpio 17 1>;  // GPIO17 (LCD_RESET), active low (1 = inverted)
+                
+                backlight = <&pwm_backlight>;
+                rotation = <270>;
+                
+                port {
+                    panel_in: endpoint {
+                        remote-endpoint = <&dsi_out>;
+                    };
+                };
+            };
+        };
+    };
+
+    // No regulator needed - removed fragment@1
+
+    fragment@2 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            reset_pins: reset_pins {
+                brcm,pins = <17>;     // GPIO17 (LCD_RESET)
+                brcm,function = <1>;  // Output
+                brcm,pull = <0>;      // No pull
+            };
+            
+            pwm_pins: pwm_pins {
+                brcm,pins = <18>;
+                brcm,function = <2>;  // Alt5 (PWM0)
+            };
+        };
+    };
+
+    fragment@3 {
+        target = <&rp1_pwm0>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&pwm_pins>;
+            status = "okay";
+        };
+    };
+
+    fragment@4 {
+        target-path = "/";
+        __overlay__ {
+            pwm_backlight: backlight {
+                compatible = "pwm-backlight";
+                pwms = <&rp1_pwm0 0 20000 0>;
+                brightness-levels = <0 4 8 16 32 48 64 96 128 160 192 224 240 255>;
+                default-brightness-level = <10>;
+                status = "okay";
+            };
+        };
+    };
+
+    __overrides__ {
+        dsi0 = <&dsi_frag>, "target:0=",<&dsi0>;
+    };
+};
