@@ -27,11 +27,7 @@
                 power-supply = <&rp1_vdd_3v3>;
                 
                 // LCD reset pin according to ProductShop pinout  
-                reset-gpios = <&rp1_gpio 17 1>;  // GPIO17 (LCD_RESET), active low (1 = inverted)
-                
-                // Backlight reference
-                backlight = <&pwm_backlight>;
-                
+                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 (LCD_RESET), active HIGH
                 // Physical dimensions for ProductShop 12" display
                 width-mm = <135>;
                 height-mm = <216>;

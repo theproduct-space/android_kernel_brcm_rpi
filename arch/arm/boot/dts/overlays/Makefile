@@ -221,12 +221,10 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	pitft28-resistive.dtbo \
 	pitft35-resistive.dtbo \
 	pps-gpio.dtbo \
-	productshop-backlight.dtbo \
 	productshop-camera.dtbo \
-	productshop-devboard-overlay.dtbo \
-	productshop-devboard-v1-overlay.dtbo \
-	productshop-devboard-v2-overlay.dtbo \
-	productshop-dsi-fix.dtbo \
+	productshop-devboard-v1.dtbo \
+	productshop-devboard-v2.dtbo \
+	productshop-dsi.dtbo \
 	productshop-led.dtbo \
 	productshop-nfc.dtbo \
 	productshop-sensors-power.dtbo \

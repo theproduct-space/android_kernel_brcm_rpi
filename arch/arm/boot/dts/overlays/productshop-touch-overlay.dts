@@ -1,0 +1,84 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "brcm,bcm2712";
+
+    fragment@0 {
+        target = <&spi0>;
+        __overlay__ {
+            status = "okay";
+            
+            spidev@0 {
+                compatible = "himax,hxcommon";
+                reg = <0>;
+                spi-max-frequency = <10000000>;  // 10MHz
+                
+                // Touch panel coordinates (1200x2000)
+                himax,panel-coords = <0 1200 0 2000>;
+                himax,display-coords = <0 1200 0 2000>;
+                
+                // GPIO configuration
+                himax,irq-gpio = <&rp1_gpio 20 0x2008>;  // GPIO20, IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_EDGE_FALLING
+                himax,rst-gpio = <&rp1_gpio 7 0x00>;    // GPIO7 - LCD_TOUCH_RST
+                
+                // Interrupt configuration
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <20 0x2008>;  // GPIO20, IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_EDGE_FALLING
+                
+                // Project-specific configuration
+                himax,proj-name = "productshop";
+                productshop,rx-num = <50>;
+                productshop,tx-num = <32>;
+                productshop,bt-num = <0>;
+                productshop,max-pt = <10>;
+                productshop,int-edge = <1>;  // Edge trigger
+                productshop,stylus-func = <0>;  // No stylus support
+                
+                // Protocol configuration
+                report_type = <1>;  // Protocol B
+                
+                status = "okay";
+            };
+        };
+    };
+
+    fragment@1 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            spi0_pins: spi0_pins {
+                brcm,pins = <8 9 10 11>;  // CS0, MISO, MOSI, SCLK
+                brcm,function = <4>;      // Alt0 function for SPI0
+                brcm,pull = <0>;          // No pull
+            };
+            
+            touch_irq_pins: touch_irq_pins {
+                brcm,pins = <20>;         // Touch interrupt GPIO20
+                brcm,function = <0>;      // Input
+                brcm,pull = <2>;          // Pull-up
+            };
+            
+            touch_reset_pins: touch_reset_pins {
+                brcm,pins = <7>;          // Touch reset GPIO7 
+                brcm,function = <1>;      // Output
+                brcm,pull = <0>;          // No pull
+            };
+        };
+    };
+
+    fragment@2 {
+        target = <&spi0>;
+        __overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi0_pins>;
+        };
+    };
+
+    __overrides__ {
+        spi_freq = <&himax_ts>, "spi-max-frequency:0";
+        irq_gpio = <&himax_ts>, "himax,irq-gpio:4",
+                   <&touch_irq_pins>, "brcm,pins:0";
+        rst_gpio = <&himax_ts>, "himax,rst-gpio:4",
+                   <&touch_reset_pins>, "brcm,pins:0";
+    };
+};
