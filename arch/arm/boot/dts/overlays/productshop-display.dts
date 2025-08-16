@@ -4,9 +4,9 @@
 /{
     compatible = "brcm,bcm2712";
 
-    // DSI Display Configuration
+    // DSI Host Configuration with Panel
     dsi_frag: fragment@0 {
-        target = <&dsi1>;
+        target = <&rp1_dsi0>;
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
@@ -18,10 +18,13 @@
                 };
             };
             
-            // ProductShop Himax HX83102E Panel - using kernel driver
+            // ProductShop Himax HX83102E Panel
             panel@0 {
                 compatible = "himax,hx83102e";
                 reg = <0>;  // DSI virtual channel
+                
+                // Power supply for panel
+                power-supply = <&rp1_vdd_3v3>;
                 
                 // LCD reset pin according to ProductShop pinout  
                 reset-gpios = <&rp1_gpio 17 1>;  // GPIO17 (LCD_RESET), active low (1 = inverted)
@@ -154,8 +157,8 @@
     };
 
     __overrides__ {
-        // DSI overrides
-        dsi0 = <&dsi_frag>, "target:0=",<&dsi0>;
-        
+        // DSI overrides - allow switching between DSI0 and DSI1
+        dsi0 = <&dsi_frag>, "target:0=",<&rp1_dsi0>;
+        dsi1 = <&dsi_frag>, "target:0=",<&rp1_dsi1>;
     };
 };
