@@ -18,11 +18,11 @@
 
     // --- I2C Hardware Bus for NFC ---
     fragment@1 {
-        target = <&i2c1>;  // Using hardware I2C1 instead of GPIO I2C
+        target = <&i2c2>;  // Using hardware I2C2 for NFC on GPIO41/42
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
-            pinctrl-0 = <&rp1_i2c1_2_3>;  // I2C1 on GPIO2/GPIO3
+            pinctrl-0 = <&rp1_i2c2_41_42>;  // I2C2 on GPIO41/42
             status = "okay";
             
             pn7160_nfc: nfc@28 {
