@@ -12,10 +12,10 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  */
-#include "himax_platform.h"
-#include "himax_common.h"
-#include "himax_ic_core.h"
-#include "himax_modular.h"
+#include "hxchipset/himax_platform.h"
+#include "hxchipset/himax_common.h"
+#include "hxchipset/himax_ic_core.h"
+#include "hxchipset/himax_modular.h"
 
 #if defined(HX_SMART_WAKEUP)
 #define GEST_SUP_NUM 28

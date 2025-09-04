@@ -19,7 +19,7 @@
             };
             
             // ProductShop Himax HX83102E Panel
-            panel@0 {
+            panel: panel@0 {
                 compatible = "himax,hx83102e";
                 reg = <0>;  // DSI virtual channel
                 
@@ -27,7 +27,9 @@
                 power-supply = <&rp1_vdd_3v3>;
                 
                 // LCD reset pin according to ProductShop pinout  
-                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 (LCD_RESET), active HIGH
+                reset-gpios = <&rp1_gpio 17 1>;  // GPIO17 (LCD_RESET), try active LOW
+                pinctrl-names = "default";
+                pinctrl-0 = <&lcd_reset_pins>;
                 
                 // Physical dimensions for ProductShop 12" display
                 width-mm = <135>;
@@ -42,18 +44,7 @@
         };
     };
 
-    // Free GPIO7 from SPI CS1 usage
-    fragment@1 {
-        target = <&rp1_gpio>;
-        __overlay__ {
-            // Explicitly configure GPIO7 as general purpose before SPI claims it
-            gpio7_touch_reset: gpio7_touch_reset {
-                brcm,pins = <7>;
-                brcm,function = <1>;  // Output
-                brcm,pull = <0>;      // No pull
-            };
-        };
-    };
+    // Free GPIO7 from SPI CS1 usage - removed duplicate configuration
 
     // GPIO Pin Configuration
     fragment@3 {
@@ -61,9 +52,9 @@
         __overlay__ {
             // Display GPIO pins
             lcd_reset_pins: lcd_reset_pins {
-                brcm,pins = <17>;     // GPIO17 (LCD_RESET)
-                brcm,function = <1>;  // Output
-                brcm,pull = <0>;      // No pull
+                pins = "gpio17";      // GPIO17 (LCD_RESET) 
+                function = "gpio";    // GPIO function
+                bias-disable;         // No pull
             };
             
             pwm_pins: pwm_pins {
@@ -71,17 +62,23 @@
                 function = "pwm0";
             };
             
-            // Touch GPIO pins
+            // SPI0 data pins configuration (MISO, MOSI, SCLK)
+            spi0_data_pins: spi0_data_pins {
+                pins = "gpio9", "gpio10", "gpio11";  // MISO, MOSI, SCLK
+                function = "spi0";                    // SPI0 function
+            };
+
+            // Touch GPIO pins - use consistent rp1_gpio syntax
             touch_irq_pins: touch_irq_pins {
-                brcm,pins = <20>;         // Touch interrupt GPIO20
-                brcm,function = <0>;      // Input
-                brcm,pull = <2>;          // Pull-up
+                pins = "gpio20";          // Touch interrupt GPIO20
+                function = "gpio";        // GPIO function
+                bias-pull-up;             // Pull-up
             };
             
             touch_reset_pins: touch_reset_pins {
-                brcm,pins = <7>;          // Touch reset GPIO7 (LCD_TOUCH_RST)
-                brcm,function = <1>;      // Output
-                brcm,pull = <0>;          // No pull
+                pins = "gpio7";           // Touch reset GPIO7 (LCD_TOUCH_RST per ProductShop spec)
+                function = "gpio";        // GPIO function
+                bias-disable;             // No pull
             };
         };
     };
@@ -149,31 +146,50 @@
         };
     };
 
-    // SPI Touch Device Configuration - Configure RP1 SPI0 (same as spi0-1cs approach)
-    fragment@9 {
-        target = <&rp1_spi0>;
+    // SPI0 CS Pin Configuration (GPIO8) 
+    spi_cs_frag: fragment@9 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            spi0_cs_pins: spi0_cs_pins {
+                pins = "gpio8";
+                function = "spi0";
+            };
+        };
+    };
+
+    // SPI Touch Device Configuration - Use SPI0 with proper GPIO configuration
+    fragment@9a {
+        target = <&spi0>;
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
+            cs-gpios = <&rp1_gpio 8 1>;
             status = "okay";
-            cs-gpios = <&rp1_gpio 8 1>;  // Configure CS0 on GPIO8, active low (like spi0-1cs)
+            // Configure all SPI pins and touch GPIO pins
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi0_cs_pins>, <&spi0_data_pins>, <&touch_reset_pins>, <&touch_irq_pins>;
             
             himax_ts: himax_ts@0 {
                 compatible = "himax,hxcommon";
                 reg = <0>;  // Use chipselect 0
-                spi-max-frequency = <10000000>;
-                himax,panel-coords = <0 1200 0 2000>;
-                himax,display-coords = <0 1200 0 2000>;
+                spi-max-frequency = <10000000>; // 10MHz - standard for Himax controllers
+                himax,panel-coords = <0 1199 0 1999>;  // Fix coordinates (0-based)
+                himax,display-coords = <1200 2000>;     // Physical size
                 himax,irq-gpio = <&rp1_gpio 20 0x2008>;
-                himax,rst-gpio = <&rp1_gpio 7 0x00>;
+                himax,rst-gpio = <&rp1_gpio 7 0x01>;
                 interrupt-parent = <&rp1_gpio>;
                 interrupts = <20 0x2008>;
+                report_type = <1>;
+                /* Ensure proper power sequencing - touch after LCD ready */
+                panel = <&panel>;
+                /* Add power-on delay for integrated LCD+Touch controller */
+                himax,power-on-delay-ms = <200>;
                 status = "okay";
             };
         };
     };
 
-    // Disable conflicting spidev device on RP1 SPI using proper path
+    // Disable conflicting spidev device on SPI0 controller  
     spidev_fragment: fragment@10 {
         target-path = "/axi/pcie@120000/rp1/spi@50000/spidev@0";
         __overlay__ {
@@ -181,9 +197,20 @@
         };
     };
 
+    // Add no_miso support for SPI0 data pins (optional MISO line)
+    fragment@11 {
+        target = <&spi0_pins>;
+        __dormant__ {
+            brcm,pins = <10 11>;  // Only MOSI and SCLK if no MISO needed
+        };
+    };
+
     __overrides__ {
         // DSI overrides - allow switching between DSI0 and DSI1
         dsi0 = <&dsi_frag>, "target:0=",<&dsi0>;
         dsi1 = <&dsi_frag>, "target:0=",<&dsi1>;
+        // SPI overrides - CS pin and MISO control  
+        cs0_pin = <&spi_cs_frag>, "brcm,pins:0";
+        no_miso = <0>, "=11";
     };
 };

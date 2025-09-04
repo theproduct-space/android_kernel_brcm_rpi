@@ -13,8 +13,8 @@
  *  GNU General Public License for more details.
  */
 
-#include "himax_platform.h"
-#include "himax_common.h"
+#include "hxchipset/himax_platform.h"
+#include "hxchipset/himax_common.h"
 
 int i2c_error_count;
 bool ic_boot_done;
@@ -767,7 +767,7 @@ int himax_gpio_power_config(struct himax_platform_data *pdata)
 	gpio_free(pdata->lcm_rst);
 #endif
 	/*msleep(20);*/
-	usleep_range(10000, 10001);
+	usleep_range(2000, 2001);
 #if defined(HX_RST_PIN_FUNC)
 
 	if (gpio_is_valid(pdata->gpio_reset)) {
@@ -1325,16 +1325,14 @@ int himax_chip_common_probe(struct spi_device *spi)
 	struct himax_ts_data *ts;
 	int ret = 0;
 
-	printk(KERN_ALERT "HIMAX_CUSTOM_DEBUG_2025_08_14: Function entry probe\n");
-	dev_info(&spi->dev, "HIMAX_DEBUG: About to check SPI controller flags\n");
-	if (spi->controller->flags & SPI_CONTROLLER_HALF_DUPLEX) {
+	I("Enter %s\n", __func__);
+	if (spi->master->flags & SPI_MASTER_HALF_DUPLEX) {
 		dev_err(&spi->dev,
 			"%s: Full duplex not supported by host\n",
 			__func__);
 		return -EIO;
 	}
 
-	dev_info(&spi->dev, "HIMAX_DEBUG: SPI controller check passed, allocating g_xfer_data\n");
 	g_xfer_data = kzalloc(BUS_RW_MAX_LEN, GFP_KERNEL);
 	if (g_xfer_data == NULL) {
 		E("%s: allocate g_xfer_data failed\n", __func__);
@@ -1363,9 +1361,7 @@ int himax_chip_common_probe(struct spi_device *spi)
 
 	ts->probe_finish = false;
 	ts->initialized = false;
-	dev_info(&spi->dev, "HIMAX_DEBUG: About to call himax_chip_common_init()\n");
 	ret = himax_chip_common_init();
-	dev_info(&spi->dev, "HIMAX_DEBUG: himax_chip_common_init() returned: %d\n", ret);
 	if (ret < 0)
 		goto err_common_init_failed;
 
@@ -1523,7 +1519,7 @@ static void __exit himax_common_exit(void)
 #if defined(__HIMAX_MOD__)
 module_init(himax_common_init);
 #else
-device_initcall(himax_common_init);
+late_initcall(himax_common_init);
 #endif
 module_exit(himax_common_exit);
 

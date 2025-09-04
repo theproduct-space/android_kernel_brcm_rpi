@@ -38,12 +38,7 @@ static inline struct hx83102 *to_hx83102(struct drm_panel *panel)
 
 static int productshop_init(struct mipi_dsi_device *dsi)
 {
-    struct device *dev = &dsi->dev;
-    
-    dev_info(dev, "*** PRODUCTSHOP_INIT FUNCTION CALLED ***\n");
-    
-    mipi_dsi_dcs_write_seq(dsi,0xB9,0x83,0x10,0x2E);
-    dev_info(dev, "First DSI command sent\n");
+mipi_dsi_dcs_write_seq(dsi,0xB9,0x83,0x10,0x2E);
 mipi_dsi_dcs_write_seq(dsi,0xE9,0xCD);
 mipi_dsi_dcs_write_seq(dsi,0xBB,0x01);
 mipi_dsi_dcs_write_seq(dsi,0xE9,0x00);
@@ -108,73 +103,6 @@ mipi_dsi_dcs_write_seq(dsi,0x36,0x03);
 
     mipi_dsi_dcs_set_display_on(dsi);
     msleep(20);
-
-    // OSCILLOSCOPE DEBUG: Slow command sequences for scope capture
-    {
-        u8 data[16];
-        int ret;
-        struct device *dev = &dsi->dev;
-        
-        dev_info(dev, "*** OSCILLOSCOPE DEBUG: SLOW DSI COMMANDS ***\n");
-        
-        // Slow command sequence - 1 second delays for scope triggering
-        dev_info(dev, "Sending slow DSI commands with 1s delays...\n");
-        msleep(1000);
-        
-        // Test 1: Read Display ID (0x04) - SLOW
-        dev_info(dev, "About to send Display ID read command (0x04)...\n");
-        msleep(1000);  // 1 second delay for scope setup
-        ret = mipi_dsi_dcs_read(dsi, 0x04, data, 3);
-        dev_info(dev, "Display ID (0x04): ret=%d, data=[%02x %02x %02x]\n", 
-                 ret, ret > 0 ? data[0] : 0, ret > 1 ? data[1] : 0, ret > 2 ? data[2] : 0);
-        msleep(1000);
-        
-        // Test 2: Write command for scope (easier to see than reads)
-        dev_info(dev, "About to send WRITE command (0x36 - Set Address Mode)...\n");
-        msleep(1000);
-        ret = mipi_dsi_dcs_write(dsi, 0x36, &(u8){0x03}, 1);
-        dev_info(dev, "Write command (0x36): ret=%d\n", ret);
-        msleep(1000);
-        
-        // Test 3: Read Display Status (0x09) - SLOW  
-        dev_info(dev, "About to send Display Status read command (0x09)...\n");
-        msleep(1000);
-        ret = mipi_dsi_dcs_read(dsi, 0x09, data, 4);
-        dev_info(dev, "Display Status (0x09): ret=%d, data=[%02x %02x %02x %02x]\n", 
-                 ret, ret > 0 ? data[0] : 0, ret > 1 ? data[1] : 0, ret > 2 ? data[2] : 0, ret > 3 ? data[3] : 0);
-        
-        // Test 3: Read Power Mode (0x0A)
-        ret = mipi_dsi_dcs_read(dsi, 0x0A, data, 1);
-        dev_info(dev, "Power Mode (0x0A): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        // Test 4: Read Address Mode (0x0B)
-        ret = mipi_dsi_dcs_read(dsi, 0x0B, data, 1);
-        dev_info(dev, "Address Mode (0x0B): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        // Test 5: Read Pixel Format (0x0C)
-        ret = mipi_dsi_dcs_read(dsi, 0x0C, data, 1);
-        dev_info(dev, "Pixel Format (0x0C): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        // Test 6: Read Display Mode (0x0D)
-        ret = mipi_dsi_dcs_read(dsi, 0x0D, data, 1);
-        dev_info(dev, "Display Mode (0x0D): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        // Test 7: Read Signal Mode (0x0E)
-        ret = mipi_dsi_dcs_read(dsi, 0x0E, data, 1);
-        dev_info(dev, "Signal Mode (0x0E): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        // Test 8: Try Himax specific read (0xDB)
-        ret = mipi_dsi_dcs_read(dsi, 0xDB, data, 1);
-        dev_info(dev, "Himax ID (0xDB): ret=%d, data=[%02x]\n", 
-                 ret, ret > 0 ? data[0] : 0);
-        
-        dev_info(dev, "*** DSI READ DIAGNOSTIC TESTS COMPLETED ***\n");
-    }
 
     return 0;
 }
@@ -247,9 +175,7 @@ static int hx83102_prepare(struct drm_panel *panel)
     gpiod_set_value_cansleep(ctx->enable_gpio, 1);
     msleep(200);
 
-    dev_info(ctx->dev, "About to call init function\n");
     ret = ctx->desc->init(ctx->dsi);
-    dev_info(ctx->dev, "Init function returned: %d\n", ret);
     if (ret < 0) {
         dev_err(ctx->dev, "Panel init failed: %d\n", ret);
         goto poweroff;
@@ -330,8 +256,8 @@ static int hx83102_probe(struct mipi_dsi_device *dsi)
 
     dsi->lanes = 4;
     dsi->format = MIPI_DSI_FMT_RGB888;
-    // DEBUGGING: Switch to Command Mode for oscilloscope debugging
-    dsi->mode_flags = MIPI_DSI_MODE_LPM | MIPI_DSI_CLOCK_NON_CONTINUOUS;
+    dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+              MIPI_DSI_MODE_LPM;
 
     drm_panel_init(&ctx->panel, dev, &hx83102_panel_funcs,
                DRM_MODE_CONNECTOR_DSI);
@@ -351,22 +277,6 @@ static int hx83102_probe(struct mipi_dsi_device *dsi)
         if (ret == -EBUSY || ret == -EPROBE_DEFER)
             return -EPROBE_DEFER;
         return ret;
-    }
-
-    dev_info(dev, "*** FORCE ENABLING PANEL AFTER PROBE ***\n");
-    
-    /* Prepare and enable the panel automatically */
-    ret = hx83102_prepare(&ctx->panel);
-    if (ret < 0) {
-        dev_err(dev, "Failed to prepare panel: %d\n", ret);
-    } else {
-        dev_info(dev, "Panel prepared successfully\n");
-        ret = hx83102_enable(&ctx->panel);
-        if (ret < 0) {
-            dev_err(dev, "Failed to enable panel: %d\n", ret);
-        } else {
-            dev_info(dev, "Panel force-enabled successfully!\n");
-        }
     }
 
     return 0;
