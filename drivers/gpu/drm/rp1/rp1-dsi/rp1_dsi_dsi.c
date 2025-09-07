@@ -1558,18 +1558,33 @@ int rp1dsi_dsi_recv(struct rp1_dsi *dsi, int len, u8 *buf)
 {
 	int i, j;
 	u32 val;
+	u32 initial_status, final_status;
+
+	initial_status = DSI_READ(DSI_CMD_PKT_STATUS);
+	drm_info(dsi->drm, "DSI RX Start: len=%d, initial_status=0x%08x (bit4=%d, bit6=%d)", 
+		 len, initial_status, 
+		 !!(initial_status & (1 << 4)), !!(initial_status & (1 << 6)));
 
 	/* Wait until not busy and FIFO not empty */
 	for (i = 1024; i > 0; --i) {
 		val = DSI_READ(DSI_CMD_PKT_STATUS);
 		if ((val & ((1 << 6) | (1 << 4))) == 0)
 			break;
+		if (i % 100 == 0) {  // Log every 100 iterations
+			drm_info(dsi->drm, "DSI RX Wait: iter=%d, status=0x%08x (bit4=%d, bit6=%d)", 
+				 1024-i, val, !!(val & (1 << 4)), !!(val & (1 << 6)));
+		}
 		usleep_range(100, 150);
 	}
+	
+	final_status = DSI_READ(DSI_CMD_PKT_STATUS);
 	if (!i) {
-		drm_warn(dsi->drm, "Receive failed\n");
+		drm_warn(dsi->drm, "Receive timeout: final_status=0x%08x (bit4=%d, bit6=%d)", 
+			 final_status, !!(final_status & (1 << 4)), !!(final_status & (1 << 6)));
 		return -EIO;
 	}
+
+	drm_info(dsi->drm, "DSI RX Ready: final_status=0x%08x, starting data read", final_status);
 
 	for (i = 0; i < len; i += 4) {
 		/* Read fifo must not be empty before all bytes are read */

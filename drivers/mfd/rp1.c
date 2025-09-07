@@ -340,8 +340,30 @@ static int rp1_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 					rp1_chained_handle_irq);
 	}
 
-	if (rp1_node)
+	if (rp1_node) {
+		struct device_node *dsi1_node;
+		
 		of_platform_populate(rp1_node, NULL, NULL, &pcie_pdev->dev);
+		
+		/* Manually create DSI1 platform device if of_platform_populate missed it */
+		dsi1_node = of_find_node_by_name(rp1_node, "dsi@128000");
+		if (dsi1_node && of_device_is_available(dsi1_node)) {
+			struct platform_device *dsi1_pdev;
+			
+			dsi1_pdev = of_find_device_by_node(dsi1_node);
+			if (!dsi1_pdev) {
+				dev_warn(&pdev->dev, "Creating missing DSI1 platform device\n");
+				dsi1_pdev = of_platform_device_create(dsi1_node, NULL, &pcie_pdev->dev);
+				if (!dsi1_pdev) {
+					dev_err(&pdev->dev, "Failed to create DSI1 platform device\n");
+				}
+			} else {
+				put_device(&dsi1_pdev->dev);
+			}
+		}
+		if (dsi1_node)
+			of_node_put(dsi1_node);
+	}
 
 	of_node_put(rp1_node);
 

@@ -41,11 +41,11 @@
             
             // ProductShop Himax HX83102E Panel
             panel: panel@0 {
-                compatible = "himax,hx83102e", "himax,hx83102";
+                compatible = "productshop,hx83102e-display";
                 reg = <0>;  // DSI virtual channel
                 
-                // Display reset pin - GPIO17 (active high per working config)
-                reset-gpios = <&rp1_gpio 17 0>;
+                // Display reset pin - GPIO17 (active-low per datasheet)
+                reset-gpios = <&rp1_gpio 17 1>;
                 
                 // PWM backlight reference
                 backlight = <&pwm_backlight>;
@@ -91,7 +91,7 @@
                 
                 // GPIO configuration
                 himax,irq-gpio = <&rp1_gpio 20 0x2008>;  // GPIO20, IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_EDGE_FALLING
-                himax,rst-gpio = <&rp1_gpio 7 0x00>;    // GPIO7 - Touch reset
+                himax,rst-gpio = <&rp1_gpio 7 0x01>;    // GPIO7 - Touch reset (active-low)
                 
                 // Interrupt configuration
                 interrupt-parent = <&rp1_gpio>;
@@ -179,7 +179,7 @@
         __overlay__ {
             pwm_backlight: backlight {
                 compatible = "pwm-backlight";
-                pwms = <&rp1_pwm0 0 25000 0>;  // 25kHz, normal polarity
+                pwms = <&rp1_pwm0 2 25000 0>;  // 25kHz, normal polarity, Channel 2!
                 
                 // Brightness levels (0-13 levels, exponential curve)
                 brightness-levels = <0 4 8 16 32 48 64 96 128 160 192 224 240 255>;

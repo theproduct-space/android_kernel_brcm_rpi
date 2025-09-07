@@ -9,8 +9,14 @@
         target = <&rp1_gpio>;
         __overlay__ {
             nfc_pins: nfc_pin_group {
-                pins = "gpio2", "gpio3", "gpio46";
+                pins = "gpio2", "gpio3", "gpio15";
                 function = "gpio";
+                bias-pull-up;
+            };
+            
+            i2c2_pins: i2c2_pin_group {
+                pins = "gpio12", "gpio13";
+                function = "i2c2";
                 bias-pull-up;
             };
         };
@@ -18,11 +24,13 @@
 
     // --- I2C Hardware Bus for NFC ---
     fragment@1 {
-        target = <&i2c1>;  // Using available I2C1 bus temporarily
+        target = <&i2c2>;  // Using I2C2 bus (GPIO41/42) for NFC
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
             status = "okay";
+            pinctrl-names = "default";
+            pinctrl-0 = <&i2c2_pins>;
             
             pn7160_nfc: nfc@28 {
                 compatible = "nxp,nxpnfc";
@@ -35,7 +43,7 @@
                 interrupts = <3 8>; /* GPIO3, IRQ_TYPE_LEVEL_LOW */
                 nxp,nxpnfc-irq = <&rp1_gpio 3 0>;
                 nxp,nxpnfc-ven = <&rp1_gpio 2 0>;
-                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 46 0>;
+                nxp,nxpnfc-fw-dwnld = <&rp1_gpio 15 0>;
             };
         };
     };

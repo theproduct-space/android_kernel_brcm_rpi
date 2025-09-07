@@ -23,7 +23,7 @@
                 reg = <0>;  // DSI virtual channel
                 
                 // LCD reset pin according to ProductShop pinout  
-                reset-gpios = <&rp1_gpio 17 1>;  // GPIO17 (LCD_RESET), active low (1 = inverted)
+                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 (LCD_RESET), active high (no inversion)
                 
                 backlight = <&pwm_backlight>;
                 rotation = <270>;

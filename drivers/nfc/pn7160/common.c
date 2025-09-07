@@ -301,11 +301,31 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 		return -ENODEV;
 
 	pr_debug("%s: cmd = %x arg = %zx\n", __func__, cmd, arg);
-	if( cmd == NFC_SET_PWR ){
+	
+	switch (cmd) {
+	case NFC_SET_PWR:
 		ret = nfc_ioctl_power_states(nfc_dev, arg);
-	} else {
-		pr_err("%s: bad cmd %lu\n", __func__, arg);
+		break;
+	case 0: /* Legacy HAL command 0 - power off */
+		ret = nfc_ioctl_power_states(nfc_dev, 0);
+		break;
+	case 1: /* Legacy HAL command 1 - power on */
+		ret = nfc_ioctl_power_states(nfc_dev, 1);
+		break;
+	case ESE_SET_PWR:
+		/* ESE power control - not implemented for PN7160 */
+		pr_debug("%s: ESE power control not supported\n", __func__);
+		ret = 0;
+		break;
+	case ESE_GET_PWR:
+		/* ESE power status - not implemented for PN7160 */
+		pr_debug("%s: ESE power status not supported\n", __func__);
+		ret = 0;
+		break;
+	default:
+		pr_err("%s: bad cmd %u\n", __func__, cmd);
 		ret = -ENOIOCTLCMD;
+		break;
 	}
 	return ret;
 }

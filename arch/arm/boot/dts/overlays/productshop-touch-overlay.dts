@@ -9,7 +9,7 @@
         __overlay__ {
             status = "okay";
             
-            spidev@0 {
+            himax_ts: himax_ts@0 {
                 compatible = "himax,hxcommon";
                 reg = <0>;
                 spi-max-frequency = <10000000>;  // 10MHz
@@ -47,7 +47,7 @@
         target = <&rp1_gpio>;
         __overlay__ {
             spi0_pins: spi0_pins {
-                brcm,pins = <8 9 10 11>;  // CS0, MISO, MOSI, SCLK
+                brcm,pins = <8 9 10 11>;  // SPI0: CS, MISO, MOSI, SCLK  
                 brcm,function = <4>;      // Alt0 function for SPI0
                 brcm,pull = <0>;          // No pull
             };

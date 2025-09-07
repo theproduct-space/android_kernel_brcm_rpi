@@ -389,6 +389,10 @@ ssize_t rp1dsi_host_transfer(struct mipi_dsi_host *host, const struct mipi_dsi_m
 	struct mipi_dsi_packet packet;
 	int ret = 0;
 
+	dev_info(dsi->drm->dev, "DSI Transfer: type=0x%02x, channel=%d, tx_len=%zu, rx_len=%zu, LPM=%d, REQ_ACK=%d",
+		 msg->type, msg->channel, msg->tx_len, msg->rx_len,
+		 !!(msg->flags & MIPI_DSI_MSG_USE_LPM), !!(msg->flags & MIPI_DSI_MSG_REQ_ACK));
+
 	/* Write */
 	ret = mipi_dsi_create_packet(&packet, msg);
 	if (ret) {
@@ -396,14 +400,24 @@ ssize_t rp1dsi_host_transfer(struct mipi_dsi_host *host, const struct mipi_dsi_m
 		return ret;
 	}
 
+	dev_info(dsi->drm->dev, "DSI Packet: header=0x%08x, payload_len=%zu", 
+		 *(u32 *)(&packet.header), packet.payload_length);
+
 	rp1dsi_dsi_send(dsi, *(u32 *)(&packet.header),
 			packet.payload_length, packet.payload,
 			!!(msg->flags & MIPI_DSI_MSG_USE_LPM),
 			!!(msg->flags & MIPI_DSI_MSG_REQ_ACK));
 
 	/* Optional read back */
-	if (msg->rx_len && msg->rx_buf)
+	if (msg->rx_len && msg->rx_buf) {
+		dev_info(dsi->drm->dev, "DSI Read: requesting %zu bytes", msg->rx_len);
 		ret = rp1dsi_dsi_recv(dsi, msg->rx_len, msg->rx_buf);
+		if (ret >= 0) {
+			dev_info(dsi->drm->dev, "DSI Read Success: got %d bytes", ret);
+		} else {
+			dev_err(dsi->drm->dev, "DSI Read Failed: error %d", ret);
+		}
+	}
 
 	return (ssize_t)ret;
 }
