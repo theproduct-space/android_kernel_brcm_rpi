@@ -600,7 +600,7 @@ EXPORT_SYMBOL(himax_int_enable);
 #if defined(HX_RST_PIN_FUNC)
 void himax_rst_gpio_set(int pinnum, uint8_t value)
 {
-	gpio_direction_output(pinnum, value);
+	gpio_direction_output(pinnum, !value);  // Invert for active LOW reset
 }
 EXPORT_SYMBOL(himax_rst_gpio_set);
 #endif

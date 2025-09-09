@@ -1,31 +1,10 @@
 /dts-v1/;
 /plugin/;
 
-/*
- * ProductShop 12" Display Overlay - Complete Integration
- * 
- * Features:
- * - Himax HX83102E MIPI DSI display (1200x2000)
- * - Himax V3 SPI touch controller  
- * - PWM backlight control (GPIO18)
- * - All GPIO pin configurations
- * 
- * Hardware configuration:
- * - DSI1: Display interface
- * - SPI0: Touch interface  
- * - GPIO17: Display reset
- * - GPIO7:  Touch reset
- * - GPIO20: Touch interrupt
- * - GPIO18: PWM backlight
- */
-
 /{
     compatible = "brcm,bcm2712";
 
-    /* ========================================
-     * DSI1 Display Controller & Himax Panel
-     * ======================================== */
-    
+    // DSI Host Configuration with Panel
     dsi_frag: fragment@0 {
         target = <&dsi1>;
         __overlay__ {
@@ -41,17 +20,20 @@
             
             // ProductShop Himax HX83102E Panel
             panel: panel@0 {
-                compatible = "productshop,hx83102e-display";
+                compatible = "himax,hx83102e";
                 reg = <0>;  // DSI virtual channel
                 
-                // Display reset pin - GPIO17 (active-low per datasheet)
-                reset-gpios = <&rp1_gpio 17 1>;
+                // Power supply for panel
+                power-supply = <&rp1_vdd_3v3>;
                 
-                // PWM backlight reference
-                backlight = <&pwm_backlight>;
+                // LCD reset pin according to ProductShop pinout  
+                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 (LCD_RESET), active LOW
+                pinctrl-names = "default";
+                pinctrl-0 = <&lcd_reset_pins>;
                 
-                // Portrait orientation (270° rotation)
-                rotation = <270>;
+                // Physical dimensions for ProductShop 12" display
+                width-mm = <135>;
+                height-mm = <216>;
                 
                 port {
                     panel_in: endpoint {
@@ -62,63 +44,47 @@
         };
     };
 
-    /* ========================================
-     * SPI0 Touch Controller
-     * ======================================== */
-    
-    fragment@1 {
-        target = <&rp1_spi0>;
+    // Free GPIO7 from SPI CS1 usage - removed duplicate configuration
+
+    // GPIO Pin Configuration
+    fragment@3 {
+        target = <&rp1_gpio>;
         __overlay__ {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            status = "okay";
-            cs-gpios = <&rp1_gpio 8 1>;  // Configure CS0 on GPIO8, active low
-            pinctrl-names = "default";
-            pinctrl-0 = <&spi0_pins>;
+            // Display GPIO pins
+            lcd_reset_pins: lcd_reset_pins {
+                pins = "gpio17";      // GPIO17 (LCD_RESET) 
+                function = "gpio";    // GPIO function
+                bias-disable;         // No pull
+            };
             
-            himax_ts: himax_ts@0 {
-                compatible = "himax,hxcommon";
-                reg = <0>;
-                spi-max-frequency = <10000000>;  // 10MHz
-                
-                // Pin control configuration for touch GPIOs
-                pinctrl-names = "default";
-                pinctrl-0 = <&touch_irq_pins>, <&touch_reset_pins>;
-                
-                // Touch panel coordinates (1200x2000)
-                himax,panel-coords = <0 1200 0 2000>;
-                himax,display-coords = <0 1200 0 2000>;
-                
-                // GPIO configuration
-                himax,irq-gpio = <&rp1_gpio 20 0x2008>;  // GPIO20, IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_EDGE_FALLING
-                himax,rst-gpio = <&rp1_gpio 7 0x01>;    // GPIO7 - Touch reset (active-low)
-                
-                // Interrupt configuration
-                interrupt-parent = <&rp1_gpio>;
-                interrupts = <20 0x2008>;  // GPIO20, IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_EDGE_FALLING
-                
-                // ProductShop-specific configuration
-                himax,proj-name = "productshop";
-                productshop,rx-num = <50>;
-                productshop,tx-num = <32>;
-                productshop,bt-num = <0>;
-                productshop,max-pt = <10>;
-                productshop,int-edge = <1>;  // Edge trigger
-                productshop,stylus-func = <0>;  // No stylus support
-                
-                // Protocol configuration
-                report_type = <1>;  // Protocol B
-                
-                status = "okay";
+            pwm_pins: pwm_pins {
+                pins = "gpio18";
+                function = "pwm0";
+            };
+            
+            // SPI0 data pins configuration (MISO, MOSI, SCLK)
+            spi0_data_pins: spi0_data_pins {
+                pins = "gpio9", "gpio10", "gpio11";  // MISO, MOSI, SCLK
+                function = "spi0";                    // SPI0 function
+            };
+
+            // Touch GPIO pins - use consistent rp1_gpio syntax
+            touch_irq_pins: touch_irq_pins {
+                pins = "gpio20";          // Touch interrupt GPIO20
+                function = "gpio";        // GPIO function
+                bias-pull-up;             // Pull-up
+            };
+            
+            touch_reset_pins: touch_reset_pins {
+                pins = "gpio7";           // Touch reset GPIO7 (LCD_TOUCH_RST per ProductShop spec)
+                function = "gpio";        // GPIO function
+                bias-disable;             // No pull
             };
         };
     };
 
-    /* ========================================
-     * PWM0 Backlight Controller  
-     * ======================================== */
-    
-    fragment@2 {
+    // PWM Configuration for Backlight
+    fragment@4 {
         target = <&rp1_pwm0>;
         __overlay__ {
             pinctrl-names = "default";
@@ -127,80 +93,124 @@
         };
     };
 
-    /* ========================================
-     * GPIO Pin Configurations
-     * ======================================== */
-    
-    fragment@3 {
-        target = <&rp1_gpio>;
-        __overlay__ {
-            // SPI0 pins for touch interface (working legacy format)
-            spi0_pins: spi0_pins {
-                brcm,pins = <8 9 10 11>;  // CS, MISO, MOSI, SCLK  
-                brcm,function = <4>;      // Alt0 function for SPI0
-                brcm,pull = <0>;          // No pull
-            };
-            
-            // Touch interrupt pin
-            touch_irq_pins: touch_irq_pins {
-                brcm,pins = <20>;         // GPIO20
-                brcm,function = <0>;      // Input
-                brcm,pull = <2>;          // Pull-up
-            };
-            
-            // Touch reset pin  
-            touch_reset_pins: touch_reset_pins {
-                brcm,pins = <7>;          // GPIO7 
-                brcm,function = <1>;      // Output
-                brcm,pull = <0>;          // No pull
-            };
-            
-            // Display reset pin
-            display_reset_pins: display_reset_pins {
-                brcm,pins = <17>;         // GPIO17
-                brcm,function = <1>;      // Output
-                brcm,pull = <0>;          // No pull
-            };
-            
-            // PWM backlight pin
-            pwm_pins: pwm_pins {
-                pins = "gpio18";
-                function = "pwm0";
-            };
-        };
-    };
-
-    /* ========================================
-     * PWM Backlight Device
-     * ======================================== */
-    
-    fragment@4 {
+    // Backlight Device
+    fragment@6 {
         target-path = "/";
         __overlay__ {
             pwm_backlight: backlight {
                 compatible = "pwm-backlight";
-                pwms = <&rp1_pwm0 2 25000 0>;  // 25kHz, normal polarity, Channel 2!
-                
-                // Brightness levels (0-13 levels, exponential curve)
+                pwms = <&rp1_pwm0 2 25000 0>;
                 brightness-levels = <0 4 8 16 32 48 64 96 128 160 192 224 240 255>;
-                default-brightness-level = <10>;  // ~75% brightness
-                
-                // Power control (simplified - no external regulator reference)
-                // enable-gpios = <&rp1_gpio 18 0>;  // Optional: GPIO18 as enable if needed
-                
+                default-brightness-level = <10>;
                 status = "okay";
             };
         };
     };
 
+    // ✅ NEW: Disable HDMI outputs to force DSI as primary display
+    fragment@7 {
+        target = <&hdmi0>;
+        __overlay__ {
+            status = "disabled";
+        };
+    };
 
-    /* ========================================
-     * Runtime Overrides
-     * ======================================== */
-    
+    fragment@7a {
+        target = <&hdmi1>;
+        __overlay__ {
+            status = "disabled";
+        };
+    };
+
+    // ✅ ENABLE HVS: Hardware Video Scaler needed for video pipeline
+    fragment@7b {
+        target = <&hvs>;
+        __overlay__ {
+            status = "okay";
+        };
+    };
+
+    // ✅ ENABLE VC4 DRM: Main display driver needed for complete pipeline  
+    fragment@7c {
+        target = <&vc4>;
+        __overlay__ {
+            status = "okay";
+        };
+    };
+
+    // Disable power button to free GPIO20 for touch interrupt
+    fragment@8 {
+        target-path = "/pwr_button";
+        __overlay__ {
+            status = "disabled";
+        };
+    };
+
+    // SPI0 CS Pin Configuration (GPIO8) 
+    spi_cs_frag: fragment@9 {
+        target = <&rp1_gpio>;
+        __overlay__ {
+            spi0_cs_pins: spi0_cs_pins {
+                pins = "gpio8";
+                function = "spi0";
+            };
+        };
+    };
+
+    // SPI Touch Device Configuration - Use SPI0 with proper GPIO configuration
+    fragment@9a {
+        target = <&spi0>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            cs-gpios = <&rp1_gpio 8 1>;
+            status = "okay";
+            // Configure all SPI pins and touch GPIO pins
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi0_cs_pins>, <&spi0_data_pins>, <&touch_reset_pins>, <&touch_irq_pins>;
+            
+            himax_ts: himax_ts@0 {
+                compatible = "himax,hxcommon";
+                reg = <0>;  // Use chipselect 0
+                spi-max-frequency = <1000000>; // 1MHz - slower for IC detection
+                himax,panel-coords = <0 1199 0 1999>;  // Fix coordinates (0-based)
+                himax,display-coords = <1200 2000>;     // Physical size
+                himax,irq-gpio = <&rp1_gpio 20 0x2008>;
+                himax,rst-gpio = <&rp1_gpio 7 0x00>;
+                interrupt-parent = <&rp1_gpio>;
+                interrupts = <20 0x2008>;
+                report_type = <1>;
+                /* Ensure proper power sequencing - touch after LCD ready */
+                panel = <&panel>;
+                /* Add power-on delay for integrated LCD+Touch controller */
+                himax,power-on-delay-ms = <200>;
+                status = "okay";
+            };
+        };
+    };
+
+    // Disable conflicting spidev device on SPI0 controller  
+    spidev_fragment: fragment@10 {
+        target-path = "/axi/pcie@120000/rp1/spi@50000/spidev@0";
+        __overlay__ {
+            status = "disabled";
+        };
+    };
+
+    // Add no_miso support for SPI0 data pins (optional MISO line)
+    fragment@11 {
+        target = <&spi0_pins>;
+        __dormant__ {
+            brcm,pins = <10 11>;  // Only MOSI and SCLK if no MISO needed
+        };
+    };
+
     __overrides__ {
         // DSI overrides - allow switching between DSI0 and DSI1
         dsi0 = <&dsi_frag>, "target:0=",<&dsi0>;
         dsi1 = <&dsi_frag>, "target:0=",<&dsi1>;
+        // SPI overrides - CS pin and MISO control  
+        cs0_pin = <&spi_cs_frag>, "brcm,pins:0";
+        no_miso = <0>, "=11";
     };
 };
