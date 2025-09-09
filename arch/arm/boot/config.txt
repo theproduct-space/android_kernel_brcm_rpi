@@ -1,0 +1,40 @@
+# Kernel
+kernel=Image
+
+# Ramdisk
+initramfs ramdisk.img followkernel
+
+# Camera
+camera_auto_detect=1
+
+# Display
+disable_overscan=1
+
+# Graphics acceleration
+dtoverlay=vc4-kms-v3d
+dtoverlay=cma,cma-320
+
+# Enable SPI0 with explicit configuration for RPi5
+# Force SPI0 to use standard pins (GPIO 8-11)
+# Alternative: try with no chip select overlay to let device tree handle it
+#dtoverlay=spi0-0cs
+
+# Enable DSI1
+# DSI0 for camera
+# DSI1 for display
+
+# USB
+dtoverlay=dwc2,dr_mode=peripheral
+[cm5]
+dtoverlay=dwc2,dr_mode=otg
+[all]
+
+# ProductShop unified display and touch overlay
+
+# NFC overlay  
+#dtoverlay=productshop-nfc
+# Force DSI1 initialization for display
+dtparam=dsi0=off
+dtparam=dsi1=on
+dtoverlay=productshop-display-overlay
+dtparam=spi0-0cs
