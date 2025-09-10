@@ -4,41 +4,27 @@
 /{
     compatible = "brcm,bcm2712";
 
-    // DSI Host Configuration with Panel
+        // --- FRAGMENT@0: DSI Panel ---
     dsi_frag: fragment@0 {
         target = <&dsi1>;
         __overlay__ {
             #address-cells = <1>;
             #size-cells = <0>;
             status = "okay";
-            
             port {
-                dsi_out: endpoint {
-                    remote-endpoint = <&panel_in>;
-                };
+                dsi_out: endpoint { remote-endpoint = <&panel_in>; };
             };
-            
-            // ProductShop Himax HX83102E Panel
-            panel: panel@0 {
-                compatible = "himax,hx83102e";
-                reg = <0>;  // DSI virtual channel
-                
-                // Power supply for panel
-                power-supply = <&rp1_vdd_3v3>;
-                
-                // LCD reset pin according to ProductShop pinout  
-                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 (LCD_RESET), active LOW
+            dsi_panel: dsi_panel@0 {
+                reg = <0>;
+                compatible = "oric,12.1-dsi-touch-a,4lane";
+                rotation = <270>;
+                // LCD reset: active-high semantics for straightforward LOW->HIGH sequence
+                reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 for LCD_RESET, GPIO_ACTIVE_HIGH
                 pinctrl-names = "default";
                 pinctrl-0 = <&lcd_reset_pins>;
-                
-                // Physical dimensions for ProductShop 12" display
-                width-mm = <135>;
-                height-mm = <216>;
-                
+                status = "okay";
                 port {
-                    panel_in: endpoint {
-                        remote-endpoint = <&dsi_out>;
-                    };
+                    panel_in: endpoint { remote-endpoint = <&dsi_out>; };
                 };
             };
         };
@@ -54,7 +40,7 @@
             lcd_reset_pins: lcd_reset_pins {
                 pins = "gpio17";      // GPIO17 (LCD_RESET) 
                 function = "gpio";    // GPIO function
-                bias-disable;         // No pull
+                bias-pull-up;         // Pull-up to keep display out of reset
             };
             
             pwm_pins: pwm_pins {
@@ -180,8 +166,6 @@
                 interrupt-parent = <&rp1_gpio>;
                 interrupts = <20 0x2008>;
                 report_type = <1>;
-                /* Ensure proper power sequencing - touch after LCD ready */
-                panel = <&panel>;
                 /* Add power-on delay for integrated LCD+Touch controller */
                 himax,power-on-delay-ms = <200>;
                 status = "okay";
