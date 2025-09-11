@@ -18,7 +18,7 @@
                 reg = <0>;
                 compatible = "oric,12.1-dsi-touch-a,4lane";
                 rotation = <270>;
-                // LCD reset: active-high semantics for straightforward LOW->HIGH sequence
+                // LCD reset: active-high (working configuration for ProductShop display)
                 reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 for LCD_RESET, GPIO_ACTIVE_HIGH
                 pinctrl-names = "default";
                 pinctrl-0 = <&lcd_reset_pins>;
@@ -41,6 +41,7 @@
                 pins = "gpio17";      // GPIO17 (LCD_RESET) 
                 function = "gpio";    // GPIO function
                 bias-pull-up;         // Pull-up to keep display out of reset
+                output-high;          // Ensure LCD reset is high after setup
             };
             
             pwm_pins: pwm_pins {
@@ -64,7 +65,8 @@
             touch_reset_pins: touch_reset_pins {
                 pins = "gpio7";           // Touch reset GPIO7 (LCD_TOUCH_RST per ProductShop spec)
                 function = "gpio";        // GPIO function
-                bias-disable;             // No pull
+                bias-pull-up;             // Pull high initially - touch controller out of reset
+                output-high;              // Set initial state to high
             };
         };
     };
@@ -158,16 +160,18 @@
             himax_ts: himax_ts@0 {
                 compatible = "himax,hxcommon";
                 reg = <0>;  // Use chipselect 0
-                spi-max-frequency = <1000000>; // 1MHz - slower for IC detection
+                spi-max-frequency = <10000000>; // 10MHz - Himax documented requirement
                 himax,panel-coords = <0 1199 0 1999>;  // Fix coordinates (0-based)
                 himax,display-coords = <1200 2000>;     // Physical size
                 himax,irq-gpio = <&rp1_gpio 20 0x2008>;
-                himax,rst-gpio = <&rp1_gpio 7 0x00>;
+                himax,rst-gpio = <&rp1_gpio 27 0x01>;  // Dummy pin - don't control actual reset
                 interrupt-parent = <&rp1_gpio>;
                 interrupts = <20 0x2008>;
                 report_type = <1>;
-                /* Add power-on delay for integrated LCD+Touch controller */
-                himax,power-on-delay-ms = <200>;
+                /* Reference LCD panel to ensure touch waits for display */
+                display-parent = <&dsi_panel>;
+                /* Skip hardware reset during probe - controller already initialized */
+                himax,skip-hw-reset;
                 status = "okay";
             };
         };
@@ -175,9 +179,11 @@
 
     // Disable conflicting spidev device on SPI0 controller  
     spidev_fragment: fragment@10 {
-        target-path = "/axi/pcie@120000/rp1/spi@50000/spidev@0";
+        target = <&spi0>;
         __overlay__ {
-            status = "disabled";
+            spidev@0 {
+                status = "disabled";
+            };
         };
     };
 
