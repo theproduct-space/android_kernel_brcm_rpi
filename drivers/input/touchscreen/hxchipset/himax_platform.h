@@ -89,6 +89,7 @@ struct himax_platform_data {
 	int screenWidth;
 	int screenHeight;
 	bool swap_xy;
+	bool invert_x;
 	uint8_t fw_version;
 	uint8_t tw_id;
 	uint8_t powerOff3V3;

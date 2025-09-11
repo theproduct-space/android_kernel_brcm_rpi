@@ -246,6 +246,9 @@ int himax_parse_dt(struct himax_ts_data *ts, struct himax_platform_data *pdata)
 
 	/* Optional axis swap flag */
 	pdata->swap_xy = of_property_read_bool(dt, "himax,swap-xy");
+	
+	/* Optional X axis invert flag */
+	pdata->invert_x = of_property_read_bool(dt, "himax,invert-x");
 	if (pdata->swap_xy) {
 		/* Swap caps so input device matches transformed axes */
 		u32 tx_min = pdata->abs_x_min;

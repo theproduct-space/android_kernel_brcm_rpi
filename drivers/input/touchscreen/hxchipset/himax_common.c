@@ -2412,10 +2412,18 @@ static void himax_point_report(struct himax_ts_data *ts)
 			input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID,
 					i + 1);
 #endif
-			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
-					g_target_report_data->p[i].x);
-			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
-					g_target_report_data->p[i].y);
+			{
+				int x = g_target_report_data->p[i].x;
+				int y = g_target_report_data->p[i].y;
+				
+				/* Apply X inversion if requested */
+				if (ts->pdata->invert_x) {
+					x = ts->pdata->abs_x_max - x;
+				}
+				
+				input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
+				input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);
+			}
 #if !defined(HX_PROTOCOL_A)
 			ts->last_slot = i;
 #else

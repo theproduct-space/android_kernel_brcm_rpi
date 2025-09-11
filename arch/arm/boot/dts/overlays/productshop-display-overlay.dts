@@ -167,6 +167,8 @@
                 himax,display-coords = <0 1200 0 2000>;
                 // Request X/Y axis swap in driver
                 himax,swap-xy;
+                // Invert X axis coordinates
+                himax,invert-x;
                 himax,irq-gpio = <&rp1_gpio 20 0x2008>;
                 himax,rst-gpio = <&rp1_gpio 27 0x01>;  // Dummy pin - don't control actual reset
                 interrupt-parent = <&rp1_gpio>;
