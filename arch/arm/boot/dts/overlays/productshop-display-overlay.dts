@@ -161,8 +161,12 @@
                 compatible = "himax,hxcommon";
                 reg = <0>;  // Use chipselect 0
                 spi-max-frequency = <10000000>; // 10MHz - Himax documented requirement
-                himax,panel-coords = <0 1199 0 1999>;  // Fix coordinates (0-based)
-                himax,display-coords = <1200 2000>;     // Physical size
+                // Raw module ranges; exclusive upper bounds
+                himax,panel-coords   = <0 1200 0 2000>;
+                // Logical screen size (width, height); driver uses [1] and [3]
+                himax,display-coords = <0 1200 0 2000>;
+                // Request X/Y axis swap in driver
+                himax,swap-xy;
                 himax,irq-gpio = <&rp1_gpio 20 0x2008>;
                 himax,rst-gpio = <&rp1_gpio 27 0x01>;  // Dummy pin - don't control actual reset
                 interrupt-parent = <&rp1_gpio>;

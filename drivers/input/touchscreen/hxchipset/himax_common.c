@@ -2132,12 +2132,16 @@ int himax_parse_report_points(struct himax_ts_data *ts,
 		p_btn2 = hx_s_touch_data->coord_buf[base + 9];
 		p_tilt_y = (int8_t)hx_s_touch_data->coord_buf[base + 10];
 	}
-	if (g_ts_dbg != 0) {
-		D("%s: p_x=%d, p_y=%d, p_w=%d,p_tilt_x=%d, p_hover=%d\n",
-			__func__, p_x, p_y, p_w, p_tilt_x, p_hover);
-		D("%s: p_btn=%d, p_btn2=%d, p_tilt_y=%d\n",
-			__func__, p_btn, p_btn2, p_tilt_y);
-	}
+    if (ts->pdata->swap_xy) {
+        int t = p_x; p_x = p_y; p_y = t;
+        /* tilt axes are device-specific; leave as-is */
+    }
+    if (g_ts_dbg != 0) {
+        D("%s: p_x=%d, p_y=%d, p_w=%d,p_tilt_x=%d, p_hover=%d\n",
+                __func__, p_x, p_y, p_w, p_tilt_x, p_hover);
+        D("%s: p_btn=%d, p_btn2=%d, p_tilt_y=%d\n",
+                __func__, p_btn, p_btn2, p_tilt_y);
+    }
 
 	if (p_x >= 0
 	&& p_x <= ((ts->pdata->abs_x_max+1)*ratio-1)
@@ -2199,15 +2203,19 @@ skip_stylus_operation:
 
 	for (i = 0; i < ts->nFinger_support; i++) {
 		base = i * 4;
-		x = hx_s_touch_data->coord_buf[base] << 8
-			| hx_s_touch_data->coord_buf[base + 1];
-		y = (hx_s_touch_data->coord_buf[base + 2] << 8
-			| hx_s_touch_data->coord_buf[base + 3]);
-		w = hx_s_touch_data->coord_buf[(ts->nFinger_support * 4) + i];
+        x = hx_s_touch_data->coord_buf[base] << 8
+                | hx_s_touch_data->coord_buf[base + 1];
+        y = (hx_s_touch_data->coord_buf[base + 2] << 8
+                | hx_s_touch_data->coord_buf[base + 3]);
+        w = hx_s_touch_data->coord_buf[(ts->nFinger_support * 4) + i];
 
-		if (g_ts_dbg != 0)
-			D("%s: now parsing[%d]:x=%d, y=%d, w=%d\n", __func__,
-					i, x, y, w);
+        if (ts->pdata->swap_xy) {
+            int t = x; x = y; y = t;
+        }
+
+        if (g_ts_dbg != 0)
+            D("%s: now parsing[%d]:x=%d, y=%d, w=%d\n", __func__,
+                    i, x, y, w);
 
 		if (x >= 0
 		&& x <= ts->pdata->abs_x_max

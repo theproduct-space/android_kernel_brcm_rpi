@@ -244,6 +244,26 @@ int himax_parse_dt(struct himax_ts_data *ts, struct himax_platform_data *pdata)
 			pdata->screenWidth,
 			pdata->screenHeight);
 
+	/* Optional axis swap flag */
+	pdata->swap_xy = of_property_read_bool(dt, "himax,swap-xy");
+	if (pdata->swap_xy) {
+		/* Swap caps so input device matches transformed axes */
+		u32 tx_min = pdata->abs_x_min;
+		u32 tx_max = pdata->abs_x_max;
+		pdata->abs_x_min = pdata->abs_y_min;
+		pdata->abs_x_max = pdata->abs_y_max;
+		pdata->abs_y_min = tx_min;
+		pdata->abs_y_max = tx_max;
+
+		/* Swap screen dimensions for scaling paths */
+		{
+			int tw = pdata->screenWidth;
+			pdata->screenWidth = pdata->screenHeight;
+			pdata->screenHeight = tw;
+		}
+		I(" DT-%s:swap-xy enabled; swapped caps and screen size\n", __func__);
+	}
+
 	pdata->gpio_irq = of_get_named_gpio(dt, "himax,irq-gpio", 0);
 	if (!gpio_is_valid(pdata->gpio_irq))
 		I(" DT:gpio_irq value is not valid\n");
