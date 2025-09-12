@@ -20,6 +20,8 @@
                 rotation = <270>;
                 // LCD reset: active-high (working configuration for ProductShop display)
                 reset-gpios = <&rp1_gpio 17 0>;  // GPIO17 for LCD_RESET, GPIO_ACTIVE_HIGH
+                // Link to PWM backlight for brightness control
+                backlight = <&pwm_backlight>;
                 pinctrl-names = "default";
                 pinctrl-0 = <&lcd_reset_pins>;
                 status = "okay";
