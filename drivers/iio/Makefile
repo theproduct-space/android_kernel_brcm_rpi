@@ -42,6 +42,7 @@ obj-y += potentiostat/
 obj-y += pressure/
 obj-y += proximity/
 obj-y += resolver/
+obj-y += stm/
 obj-y += temperature/
 obj-y += test/
 obj-y += trigger/

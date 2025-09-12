@@ -34,15 +34,18 @@
             pinctrl-0 = <&rp1_i2c3_22_23>;
             status = "okay";
             
-            lsm6dsl@6a {
+            lsm6dsl@6b {
                 compatible = "st,lsm6dsl";
-                reg = <0x6a>;
+                reg = <0x6b>;
+                mount-matrix = "1", "0", "0",
+                              "0", "1", "0",
+                              "0", "0", "1";
                 status = "okay";
             };
             
-            charger@6b {
+            charger@6a {
                 compatible = "ti,bq25890";
-                reg = <0x6b>;
+                reg = <0x6a>;
                 pinctrl-names = "default";
                 pinctrl-0 = <&pmic_pins>;
                 interrupt-parent = <&rp1_gpio>;

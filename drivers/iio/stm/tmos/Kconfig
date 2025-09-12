@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menu "Tmos"
+
+source "drivers/iio/stm/tmos/st_sths34pf80/Kconfig"
+
+endmenu
