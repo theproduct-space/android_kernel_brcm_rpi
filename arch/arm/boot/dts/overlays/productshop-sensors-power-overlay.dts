@@ -22,6 +22,21 @@
                 function = "gpio";
                 bias-pull-up;
             };
+
+            // Default enables for PMIC control lines
+            pmic_charge_en_hog: pmic_charge_en_hog_control {
+                gpio-hog;
+                gpios = <21 0>;
+                output-high; // enable charging by default
+                line-name = "pmic-charge-enable";
+            };
+
+            pmic_qon_hog: pmic_qon_hog_control {
+                gpio-hog;
+                gpios = <14 0>;
+                output-high;
+                line-name = "pmic-qon";
+            };
         };
     };
 
@@ -37,9 +52,10 @@
             lsm6dsl@6b {
                 compatible = "st,lsm6dsl";
                 reg = <0x6b>;
-                mount-matrix = "1", "0", "0",
-                              "0", "1", "0",
-                              "0", "0", "1";
+                /* Rotate sensor frame +270deg around Z to match device coordinates */
+                mount-matrix = "0", "1", "0",
+                               "-1", "0", "0",
+                               "0", "0", "1";
                 status = "okay";
             };
             
@@ -48,8 +64,11 @@
                 reg = <0x6a>;
                 pinctrl-names = "default";
                 pinctrl-0 = <&pmic_pins>;
+                /* PMIC IRQ on GPIO24 (active low) */
                 interrupt-parent = <&rp1_gpio>;
-                interrupts = <6 8>; /* GPIO6, IRQ_TYPE_LEVEL_LOW */
+                interrupts = <24 8>; /* IRQ_TYPE_LEVEL_LOW */
+                /* Also expose named GPIO for drivers using gpiod */
+                bq25890-irq-gpios = <&rp1_gpio 24 0>;
                 ti,battery-regulation-voltage = <4200000>;
                 ti,charge-current = <2000000>;
                 ti,termination-current = <128000>;
@@ -58,8 +77,13 @@
                 ti,boost-voltage = <5126000>;
                 ti,boost-max-current = <1400000>;
                 ti,input-current-limit = <2000000>;
-                charge-enable-gpios = <&rp1_gpio 21 0>;
-                qon-gpios = <&rp1_gpio 24 0>;
+                monitored-battery = <&lipo_battery>;
+                status = "okay";
+            };
+
+            fuel_gauge@55 {
+                compatible = "ti,bq27411";
+                reg = <0x55>;
                 monitored-battery = <&lipo_battery>;
                 status = "okay";
             };
