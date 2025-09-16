@@ -50,6 +50,7 @@ struct frame_ring_buf g_rb_frame;
 #define SUPPORT_FINGER_DATA_CHECKSUM 0x0F
 #define TS_WAKE_LOCK_TIMEOUT		(5000)
 #define FRAME_COUNT 5
+#define HX_RST_PIN_FUNC true
 
 #if defined(HX_TP_PROC_GUEST_INFO)
 struct hx_guest_info *g_guest_info_data;
