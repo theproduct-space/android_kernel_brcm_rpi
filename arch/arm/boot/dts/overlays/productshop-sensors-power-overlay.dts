@@ -37,6 +37,18 @@
                 output-high;
                 line-name = "pmic-qon";
             };
+
+            // Camera pin groups (I2C2 + control pins)
+            camera_pins: camera_pins {
+                pins = "gpio12", "gpio13", "gpio20", "gpio21"; // I2C2 + PWDN/RESET
+                function = "gpio";
+                bias-pull-up;
+            };
+
+            camera_i2c_pins: camera_i2c_pins {
+                pins = "gpio12", "gpio13"; // I2C2 SDA/SCL
+                function = "i2c2";
+            };
         };
     };
 
@@ -89,6 +101,48 @@
                 reg = <0x55>;
                 monitored-battery = <&lipo_battery>;
                 status = "okay";
+            };
+        };
+    };
+
+    // Camera I2C bus (I2C2) and sensor placeholder
+    fragment@2 {
+        target = <&i2c4>; // RP1 I2C2 controller alias
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&rp1_i2c2_12_13>;
+            status = "okay";
+
+            camera_sensor@10 {
+                compatible = "ovti,ov5647"; // Common Pi camera sensor
+                reg = <0x10>;
+                status = "okay";
+                // Standard camera control pins
+                pwdn-gpios = <&rp1_gpio 20 1>;    // Power down (active high)
+                reset-gpios = <&rp1_gpio 21 1>;   // Reset (active high)
+
+                port {
+                    camera_out: endpoint {
+                        remote-endpoint = <&csi_in>;
+                        clock-lanes = <0>;
+                        data-lanes = <1 2>;
+                    };
+                };
+            };
+        };
+    };
+
+    // CSI receiver hookup
+    fragment@3 {
+        target = <&csi1>;
+        __overlay__ {
+            status = "okay";
+            port {
+                csi_in: endpoint {
+                    remote-endpoint = <&camera_out>;
+                };
             };
         };
     };
