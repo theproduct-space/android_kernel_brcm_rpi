@@ -37,9 +37,6 @@
                 output-high;
                 line-name = "pmic-qon";
             };
-
-            // Camera I2C pins are managed by SoC pinctrl group rp1_i2c2_12_13; avoid
-            // touching GPIO20/21 which are used by Himax touch (IRQ/RESET) in display overlay.
         };
     };
 
@@ -55,13 +52,10 @@
             lsm6dsl@6b {
                 compatible = "st,lsm6dsl";
                 reg = <0x6b>;
-                /* IMU orientation: +Y -> 0deg, +X -> 90deg (rotate +90 deg about Z)
-                 * Use numeric cells; the driver expects a 3x3 matrix of integers in [-1,0,1].
-                 * [ 0 -1  0 ]
-                 * [ 1  0  0 ]
-                 * [ 0  0  1 ]
-                 */
-                mount-matrix = <0 -1 0  1 0 0  0 0 1>;
+                /* Rotate sensor frame +270deg around Z to match device coordinates */
+                mount-matrix = "0", "1", "0",
+                               "-1", "0", "0",
+                               "0", "0", "1";
                 status = "okay";
             };
             
@@ -92,46 +86,6 @@
                 reg = <0x55>;
                 monitored-battery = <&lipo_battery>;
                 status = "okay";
-            };
-        };
-    };
-
-    // Camera I2C bus (I2C2) and sensor placeholder
-    fragment@2 {
-        target = <&i2c4>; // RP1 I2C2 controller alias
-        __overlay__ {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            pinctrl-names = "default";
-            pinctrl-0 = <&rp1_i2c2_12_13>;
-            status = "okay";
-
-            camera_sensor@10 {
-                compatible = "ovti,ov5647"; // Common Pi camera sensor
-                reg = <0x10>;
-                status = "okay";
-                // Do not claim GPIO20/21 to avoid conflict with Himax touch
-
-                port {
-                    camera_out: endpoint {
-                        remote-endpoint = <&csi_in>;
-                        clock-lanes = <0>;
-                        data-lanes = <1 2>;
-                    };
-                };
-            };
-        };
-    };
-
-    // CSI receiver hookup
-    fragment@3 {
-        target = <&csi1>;
-        __overlay__ {
-            status = "okay";
-            port {
-                csi_in: endpoint {
-                    remote-endpoint = <&camera_out>;
-                };
             };
         };
     };
