@@ -38,17 +38,8 @@
                 line-name = "pmic-qon";
             };
 
-            // Camera pin groups (I2C2 + control pins)
-            camera_pins: camera_pins {
-                pins = "gpio12", "gpio13", "gpio20", "gpio21"; // I2C2 + PWDN/RESET
-                function = "gpio";
-                bias-pull-up;
-            };
-
-            camera_i2c_pins: camera_i2c_pins {
-                pins = "gpio12", "gpio13"; // I2C2 SDA/SCL
-                function = "i2c2";
-            };
+            // Camera I2C pins are managed by SoC pinctrl group rp1_i2c2_12_13; avoid
+            // touching GPIO20/21 which are used by Himax touch (IRQ/RESET) in display overlay.
         };
     };
 
@@ -119,9 +110,7 @@
                 compatible = "ovti,ov5647"; // Common Pi camera sensor
                 reg = <0x10>;
                 status = "okay";
-                // Standard camera control pins
-                pwdn-gpios = <&rp1_gpio 20 1>;    // Power down (active high)
-                reset-gpios = <&rp1_gpio 21 1>;   // Reset (active high)
+                // Do not claim GPIO20/21 to avoid conflict with Himax touch
 
                 port {
                     camera_out: endpoint {
