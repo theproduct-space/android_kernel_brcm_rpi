@@ -52,10 +52,13 @@
             lsm6dsl@6b {
                 compatible = "st,lsm6dsl";
                 reg = <0x6b>;
-                /* Rotate sensor frame +270deg around Z to match device coordinates */
-                mount-matrix = "0", "1", "0",
-                               "-1", "0", "0",
-                               "0", "0", "1";
+                /* IMU orientation: +Y -> 0deg, +X -> 90deg (rotate +90 deg about Z)
+                 * Use numeric cells; the driver expects a 3x3 matrix of integers in [-1,0,1].
+                 * [ 0 -1  0 ]
+                 * [ 1  0  0 ]
+                 * [ 0  0  1 ]
+                 */
+                mount-matrix = <0 -1 0  1 0 0  0 0 1>;
                 status = "okay";
             };
             
